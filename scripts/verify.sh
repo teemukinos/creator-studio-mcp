@@ -746,7 +746,7 @@ c29() {
   # (b) The docstring names only the session folders the script searches.
   grep -qF '.codex*' "$m" && { REASON="(b) docstring promises ~/.codex*, the script reads \$CODEX_HOME or ~/.codex"; return 1; }
   # (c) pixelmator_batch_process takes one resize for the whole batch and makes no contact sheet.
-  grep -rqiE 'contact sheet|list of sizes' "$SKILL" && ! grep -rqi 'contact' src \
+  grep -rhi 'pixelmator_batch_process' "$SKILL" | grep -qiE 'contact sheet|list of sizes' && ! grep -rqi 'contact' src \
     && { REASON="(c) docs promise a contact sheet or a list of sizes from pixelmator_batch_process"; return 1; }
   # (d) ui_batch dryRun checks steps and vars without touching the app: it writes no status and reads no ids.
   grep -q 'if (a.dryRun) return ok' src/tools/ui.ts || { REASON="(d) dryRun no longer returns before the app is touched"; return 1; }
