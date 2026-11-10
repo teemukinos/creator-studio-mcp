@@ -1,0 +1,6 @@
+{"type": "user", "timestamp": "2026-01-01T10:00:00.000Z", "message": {"role": "user", "content": "Start the job."}}
+{"type": "assistant", "timestamp": "2026-01-01T10:00:01.000Z", "message": {"id": "msg_1", "content": [{"type": "text", "text": "Working."}]}}
+{"type": "assistant", "timestamp": "2026-01-01T10:00:02.000Z", "message": {"id": "msg_1", "usage": {"input_tokens": 100, "cache_read_input_tokens": 1000, "cache_creation_input_tokens": 200, "output_tokens": 50}, "content": [{"type": "tool_use", "id": "tool_1", "name": "Bash", "input": {"command": "sleep 5"}}]}}
+{"type": "user", "timestamp": "2026-01-01T10:00:03.000Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "tool_1", "is_error": true, "content": "failed"}]}}
+{"type": "assistant", "timestamp": "2026-01-01T10:00:04.000Z", "message": {"id": "msg_2", "usage": {"input_tokens": 10, "cache_read_input_tokens": 2000, "cache_creation_input_tokens": 0, "output_tokens": 30}, "content": [{"type": "text", "text": "Done."}]}}
+{"type": "assistant", "timestamp": "2026-01-01T10:00:05.000Z", "message": {"id": "msg_3", "content": [{"type": "text", "text": "Summary."}]}}
