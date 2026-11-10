@@ -698,6 +698,16 @@ PY
   [ "$rc" -eq 0 ]
 }
 
+# 28. The skill, which ships on its own, carries the licence and the unofficial notice.
+c28() {
+  [ -f "$SKILL/LICENSE" ] || { REASON="no LICENSE in $SKILL"; return 1; }
+  cmp -s LICENSE "$SKILL/LICENSE" || { REASON="$SKILL/LICENSE differs from LICENSE"; return 1; }
+  grep -qF 'not affiliated with Apple' "$SKILL/SKILL.md" || { REASON="SKILL.md lacks 'not affiliated with Apple'"; return 1; }
+  sh scripts/package_skill.sh || { REASON="package_skill.sh failed"; return 1; }
+  zipinfo -1 dist-skill/studio.zip | grep -qx 'studio/LICENSE' || { REASON="studio.zip lacks studio/LICENSE"; return 1; }
+  REASON="LICENSE and the unofficial notice ship with the skill"
+}
+
 PASSED=0
 TOTAL=0
 run() {
@@ -742,6 +752,7 @@ run 24 tool-coverage
 run 25 package-modes
 run 26 node-version
 run 27 contributor-checks
+run 28 skill-license
 
 echo "SCORE $PASSED/$TOTAL"
 [ "$PASSED" -eq "$TOTAL" ]
