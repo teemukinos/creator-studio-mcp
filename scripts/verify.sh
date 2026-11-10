@@ -677,6 +677,27 @@ c26() {
   REASON="Node $eng or later, stated everywhere and tested in CI"
 }
 
+# 27. The check command CONTRIBUTING.md gives contributors passes in a fresh clone, without the maintainer's setup.
+c27() {
+  [ -n "${VERIFY_NESTED:-}" ] && { REASON="nested run"; return 2; }
+  local t cmd rc
+  cmd="$(python3 - <<'PY'
+import re
+blocks = re.findall(r"```sh\n(.*?)```", open("CONTRIBUTING.md", encoding="utf-8").read(), re.S)
+hits = [l.strip() for b in blocks for l in b.splitlines() if "scripts/verify.sh" in l]
+print(hits[0] if hits else "")
+PY
+)"
+  [ -n "$cmd" ] || { REASON="CONTRIBUTING.md gives no scripts/verify.sh command"; return 1; }
+  t="$(tmpdir contrib)"
+  git clone -q "$ROOT" "$t/repo" || { REASON="clone failed"; return 1; }
+  ( cd "$t/repo" && clean_env -u CSMCP_SOURCE_DIR -u CI VERIFY_NESTED=1 sh -c "$cmd" ) >"$t/out" 2>&1
+  rc=$?
+  cat "$t/out"
+  REASON="'$cmd' in a fresh clone: $(grep -E '^(FAIL|SKIP) +[0-9]+ [a-z-]+:' "$t/out" | grep -v 'nested run' | head -n 1 | cut -c1-40) $(tail -n 1 "$t/out"), exit $rc"
+  [ "$rc" -eq 0 ]
+}
+
 PASSED=0
 TOTAL=0
 run() {
@@ -720,6 +741,7 @@ run 23 docs-tools
 run 24 tool-coverage
 run 25 package-modes
 run 26 node-version
+run 27 contributor-checks
 
 echo "SCORE $PASSED/$TOTAL"
 [ "$PASSED" -eq "$TOTAL" ]
