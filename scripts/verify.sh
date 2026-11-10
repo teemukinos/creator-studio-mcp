@@ -714,12 +714,17 @@ PY
 }
 
 # 28. The skill, which ships on its own, carries the licence and the unofficial notice.
+# skills/ must not name the licence holder (check 8), so the skill folder's LICENSE points to the repository's
+# LICENSE, and studio.zip carries that exact file.
 c28() {
+  local slug
+  slug="$(node -p 'require("./package.json").repository.url.replace(/^git\+https:\/\/github\.com\//, "").replace(/\.git$/, "")')"
   [ -f "$SKILL/LICENSE" ] || { REASON="no LICENSE in $SKILL"; return 1; }
-  cmp -s LICENSE "$SKILL/LICENSE" || { REASON="$SKILL/LICENSE differs from LICENSE"; return 1; }
+  grep -qF 'MIT License' "$SKILL/LICENSE" && grep -qF "github.com/$slug/blob/main/LICENSE" "$SKILL/LICENSE" \
+    || { REASON="$SKILL/LICENSE does not name MIT and link the repository LICENSE"; return 1; }
   grep -qF 'not affiliated with Apple' "$SKILL/SKILL.md" || { REASON="SKILL.md lacks 'not affiliated with Apple'"; return 1; }
   sh scripts/package_skill.sh || { REASON="package_skill.sh failed"; return 1; }
-  zipinfo -1 dist-skill/studio.zip | grep -qx 'studio/LICENSE' || { REASON="studio.zip lacks studio/LICENSE"; return 1; }
+  unzip -p dist-skill/studio.zip studio/LICENSE | cmp -s - LICENSE || { REASON="studio.zip lacks the repository LICENSE as studio/LICENSE"; return 1; }
   REASON="LICENSE and the unofficial notice ship with the skill"
 }
 
