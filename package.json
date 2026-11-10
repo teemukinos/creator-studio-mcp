@@ -1,9 +1,17 @@
 {
   "name": "creator-studio-mcp",
   "version": "0.7.1",
-  "description": "MCP server for Apple Creator Studio apps on macOS: Pixelmator Pro, Keynote, Pages, Numbers, Compressor and Final Cut Pro",
+  "description": "Unofficial MCP server for Apple Creator Studio apps on macOS (not affiliated with Apple): Pixelmator Pro, Keynote, Pages, Numbers, Compressor, Final Cut Pro and more",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/teemukinos/creator-studio-mcp.git"
+  },
+  "homepage": "https://github.com/teemukinos/creator-studio-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/teemukinos/creator-studio-mcp/issues"
+  },
   "bin": {
     "creator-studio-mcp": "dist/index.js"
   },

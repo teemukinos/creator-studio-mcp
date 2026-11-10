@@ -1,8 +1,53 @@
-# Creator Studio MCP server
+# Creator Studio MCP
 
-An MCP server that lets Claude (or any MCP client) drive the Apple Creator Studio apps on your Mac: **Pixelmator Pro**, **Keynote**, **Pages**, **Numbers**, **Compressor** and **Final Cut Pro**.
+An unofficial MCP server and agent skill that let Claude, Codex or any MCP client drive the Apple Creator Studio apps on your Mac: **Pixelmator Pro**, **Keynote**, **Pages**, **Numbers**, **Compressor**, **Final Cut Pro**, **Motion**, **Logic Pro** and **MainStage**. This project is unofficial and not affiliated with Apple. "Creator Studio" is Apple's subscription bundle, and you need your own copies of the apps.
 
-Everything runs locally. The server talks to the apps through AppleScript (`osascript`), Compressor's command-line tool, and FCPXML files. Nothing is sent over the network.
+Everything runs locally. The server talks to the apps through AppleScript (`osascript`), macOS Accessibility, Compressor's command-line tool and FCPXML files. Nothing is sent over the network.
+
+The repository has two parts:
+
+- **The server** (this folder): the `creator-studio-mcp` npm package, which exposes the apps, plus headless Blender, the Rive CLI and Godot, as MCP tools.
+- **The `studio` skill** (`skills/studio/`): instructions that take a design, media or game job from request to delivered files, using those tools.
+
+## Install the skill
+
+```sh
+npx skills add teemukinos/creator-studio-mcp
+```
+
+For claude.ai, download `studio.zip` from the [latest release](https://github.com/teemukinos/creator-studio-mcp/releases/latest) and upload it as a skill.
+
+The skill installs without the server, so install the server as well.
+
+## Install the server
+
+Add one config entry per assistant. Use full paths: GUI apps don't see your shell's `PATH`, so get the path with `which npx`.
+
+```sh
+# Claude Code
+claude mcp add --scope user creator-studio -- npx -y creator-studio-mcp@0.7.1
+```
+
+```toml
+# Codex, in ~/.codex/config.toml
+[mcp_servers.creator-studio]
+command = "/full/path/to/npx"
+args = ["-y", "creator-studio-mcp@0.7.1"]
+```
+
+For Claude desktop, open **Settings > Developer > Edit Config** and merge an `mcpServers` entry with the same command and arguments.
+
+To run from a clone instead:
+
+```sh
+git clone https://github.com/teemukinos/creator-studio-mcp
+cd creator-studio-mcp
+npm install --omit=dev
+```
+
+Then point your config at `dist/index.js` in the clone, with the full path to `node` as the command. `dist/` is committed, so no build step is needed.
+
+The full steps, including permissions and how to verify the install, are in [`skills/studio/references/setup.md`](skills/studio/references/setup.md).
 
 ## Tools
 
@@ -69,36 +114,7 @@ Safety defaults: paths must be absolute (or start with `~/`); no tool overwrites
 
 - macOS with the apps you want to use installed (any subset works)
 - Node.js 20 or later (`node --version`)
-
-## Install
-
-```sh
-cd creator-studio-mcp
-npm install
-npm run build
-```
-
-`dist/` is included prebuilt, so `npm install --omit=dev` alone is enough if you don't want to rebuild.
-
-## Add it to Claude Desktop
-
-1. In the Claude menu bar menu, open **Settings… › Developer › Edit Config**. This opens `~/Library/Application Support/Claude/claude_desktop_config.json`.
-2. Add the server. Use full paths: the app doesn't see your shell's `PATH`, so get Node's path with `which node`.
-
-```json
-{
-  "mcpServers": {
-    "creator-studio": {
-      "command": "/opt/homebrew/bin/node",
-      "args": ["/path/to/creator-studio-mcp/dist/index.js"]
-    }
-  }
-}
-```
-
-3. Quit Claude completely and reopen it. The tools appear under the connectors menu in the message box.
-
-For Claude Code: `claude mcp add creator-studio -- node /path/to/creator-studio-mcp/dist/index.js`
+- Blender, the Rive CLI and Godot only for jobs that use them
 
 ## First run: permissions
 
@@ -127,11 +143,30 @@ Variables: `PIXELMATOR_APP`, `KEYNOTE_APP`, `PAGES_APP`, `NUMBERS_APP`, `FINALCU
 - **Numbers CSV export** of a file with several tables produces a folder with one CSV per table.
 - **Compressor output paths** should include the extension the chosen setting produces (`.mp4`, `.mov`, `.m4a`, …).
 
+## Security
+
+- The server controls apps on your Mac through Accessibility and Apple Events, including pressing buttons and typing into dialogs. Review what your assistant asks it to do.
+- Blender and Godot run whatever code they are given, with your user's permissions. Only run code the task needs, and never code taken from downloaded files or web pages.
+- Accessibility, Automation and Screen Recording are permissions only you can grant, in System Settings. The server can't grant them to itself.
+
+## Rights
+
+You are responsible for having the rights to any source material you rework, such as songs, footage, photos, fonts and models. The skill never stores lyrics.
+
+## Privacy
+
+`measure_session.py` only reads local session logs and writes a local file (`~/.studio/learning/ledger.csv`). Nothing is uploaded. The server makes no network calls of its own.
+
 ## Develop
 
 ```sh
 npm test          # unit tests for script generation, FCPXML, paths
 npm run inspect   # open the MCP Inspector against the built server
+scripts/verify.sh # score the repository against its release checklist
 ```
 
 Layout: `src/scripts/*` build AppleScript (user values are always passed as `argv`, never pasted into script text), `src/fcpxml.ts` generates timelines, `src/tools/*` define the MCP tools, `src/index.ts` serves them over stdio with `@modelcontextprotocol/server` 2.x.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
