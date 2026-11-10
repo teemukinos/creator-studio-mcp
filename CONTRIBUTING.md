@@ -24,7 +24,7 @@ The maintainer curates by pull request review. Entries may be reworded, merged w
 Before you open a pull request, run the checks:
 
 ```sh
-scripts/verify.sh --skip 18
+CI=true scripts/verify.sh --skip 18
 ```
 
-Check 18 looks at the maintainer's own machine, so it is skipped everywhere else.
+This runs what CI runs. Check 18 looks at the maintainer's own machine. With `CI=true`, the checks that need the maintainer's source folder (22) or drive your Creator Studio apps (21) print SKIP and are left out of the score. If you have the apps, `scripts/verify.sh --skip 18,22` also runs check 21, which keeps the apps hidden and writes only to a temporary folder. Without `CI=true`, a SKIP counts as a failure, so check 20 then also needs the `claude` and `codex` CLIs.
