@@ -677,10 +677,12 @@ c26() {
   REASON="Node $eng or later, stated everywhere and tested in CI"
 }
 
-# 27. The check command CONTRIBUTING.md gives contributors passes in a fresh clone, without the maintainer's setup.
+# 27. The check command CONTRIBUTING.md gives contributors passes in a fresh copy, without the maintainer's setup.
+# It runs last, after every other check: a contributor-run failure that the main run shares is counted by that
+# check, so this one fails only on failures the contributor's setup adds, and on any non-zero exit when all else passes.
 c27() {
   [ -n "${VERIFY_NESTED:-}" ] && { REASON="nested run"; return 2; }
-  local t cmd rc
+  local t cmd rc probs="" n extra=""
   cmd="$(python3 - <<'PY'
 import re
 blocks = re.findall(r"```sh\n(.*?)```", open("CONTRIBUTING.md", encoding="utf-8").read(), re.S)
@@ -690,12 +692,25 @@ PY
 )"
   [ -n "$cmd" ] || { REASON="CONTRIBUTING.md gives no scripts/verify.sh command"; return 1; }
   t="$(tmpdir contrib)"
+  # A clone of HEAD, with the working tree's tracked and new files on top: the state about to be committed.
   git clone -q "$ROOT" "$t/repo" || { REASON="clone failed"; return 1; }
+  ( cd "$t/repo" && git ls-files -z | xargs -0 rm -f )
+  git ls-files -z -co --exclude-standard | while IFS= read -r -d '' f; do
+    [ -f "$f" ] || continue
+    mkdir -p "$t/repo/$(dirname "$f")"; cp -p "$f" "$t/repo/$f"
+  done
+  ( cd "$t/repo" && git add -A )
   ( cd "$t/repo" && clean_env -u CSMCP_SOURCE_DIR -u CI VERIFY_NESTED=1 sh -c "$cmd" ) >"$t/out" 2>&1
   rc=$?
   cat "$t/out"
-  REASON="'$cmd' in a fresh clone: $(grep -E '^(FAIL|SKIP) +[0-9]+ [a-z-]+:' "$t/out" | grep -v 'nested run' | head -n 1 | cut -c1-40) $(tail -n 1 "$t/out"), exit $rc"
-  [ "$rc" -eq 0 ]
+  [ "$rc" -eq 0 ] && { REASON="'$cmd' passes in a fresh copy"; return 0; }
+  probs="$(grep -oE '^FAIL +[0-9]+' "$t/out" | awk '{print $2}')"
+  case "$cmd" in *CI=true*) ;; *) probs="$probs $(grep -E '^SKIP +[0-9]+ [a-z-]+:' "$t/out" | awk '{print $2}')" ;; esac
+  for n in $probs; do case "$OUTER_FAILED" in *",$n,"*) ;; *) extra="$extra $n" ;; esac; done
+  if [ -z "$(echo $probs)" ] || [ -n "$extra" ]; then
+    REASON="'$cmd' exit $rc; contributor-only failures:${extra:- none listed}"; return 1
+  fi
+  REASON="'$cmd': no contributor-only failures (shares$(echo " $probs" | tr '\n' ' ' | tr -s ' '))"
 }
 
 # 28. The skill, which ships on its own, carries the licence and the unofficial notice.
@@ -742,9 +757,12 @@ c29() {
 
 PASSED=0
 TOTAL=0
+OUT=""
+OUTER_FAILED=","
 run() {
   local n=$1 name=$2 status
-  case "$SKIP" in *",$n,"*) printf 'SKIP %2d %s\n' "$n" "$name"; return ;; esac
+  case "$SKIP" in *",$n,"*) OUT="$OUT$(printf 'SKIP %2d %s' "$n" "$name")
+"; return ;; esac
   LOG="$LOGS/$(printf '%02d' "$n")-$name.log"
   REASON=""
   TOTAL=$((TOTAL + 1))
@@ -754,7 +772,9 @@ run() {
     2) status=SKIP; [ "${CI:-}" = "true" ] && TOTAL=$((TOTAL - 1)) ;;
     *) status=FAIL ;;
   esac
-  printf '%s %2d %s: %s\n' "$status" "$n" "$name" "${REASON:-see ${LOG#"$ROOT"/}}" | cut -c1-120
+  [ "$status" = PASS ] || OUTER_FAILED="$OUTER_FAILED$n,"
+  OUT="$OUT$(printf '%s %2d %s: %s' "$status" "$n" "$name" "${REASON:-see ${LOG#"$ROOT"/}}" | cut -c1-120)
+"
 }
 
 run 1 layout
@@ -783,9 +803,11 @@ run 23 docs-tools
 run 24 tool-coverage
 run 25 package-modes
 run 26 node-version
-run 27 contributor-checks
 run 28 skill-license
 run 29 skill-promises
+run 27 contributor-checks   # last: it compares with every other check's result
+
+printf '%s' "$OUT" | sort -s -k2,2n
 
 echo "SCORE $PASSED/$TOTAL"
 [ "$PASSED" -eq "$TOTAL" ]
