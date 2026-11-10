@@ -27,4 +27,4 @@ Before you open a pull request, run the checks:
 CI=true scripts/verify.sh --skip 18
 ```
 
-This runs what CI runs. Check 18 looks at the maintainer's own machine. With `CI=true`, the checks that need the maintainer's source folder (22) or drive your Creator Studio apps (21) print SKIP and are left out of the score. If you have the apps, `scripts/verify.sh --skip 18,22` also runs check 21, which keeps the apps hidden and writes only to a temporary folder. Without `CI=true`, a SKIP counts as a failure, so check 20 then also needs the `claude` and `codex` CLIs.
+CI runs these checks too, except check 10, which installs the skill through the skills CLI. Check 18 looks at the maintainer's own machine. With `CI=true`, the checks that need the maintainer's source folder (22) or drive your Creator Studio apps (21) print SKIP and are left out of the score. If you have the apps, `scripts/verify.sh --skip 18,22` also runs check 21, which keeps the apps hidden and writes only to a temporary folder. Without `CI=true`, a SKIP counts as a failure, so check 20 then also needs the `claude` and `codex` CLIs.
