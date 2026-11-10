@@ -2,12 +2,12 @@
 """Measure what a session cost and append one line to the studio ledger.
 
 Reads a Claude Code transcript (~/.claude/projects/<project>/<session>.jsonl) or a Codex rollout
-(~/.codex*/sessions/**/rollout-*.jsonl). Prints at most 12 lines and appends one CSV row.
+($CODEX_HOME/sessions/**/rollout-*.jsonl, where CODEX_HOME defaults to ~/.codex). Prints at most 12 lines and appends one CSV row.
 
   measure_session.py --latest --job my-remix --unit 01-intro --type remix --plan ~/Music/Remixes/plan.md
   measure_session.py --transcript <file.jsonl> --since "2026-11-10 09:00" --no-ledger
 
---latest picks the newest transcript for the current folder (Claude Code), else the newest overall.
+--latest picks the newest session for the current folder, from Claude Code or Codex, else the newest overall.
 --plan splits the cost by the plan's Log lines written as "- YYYY-MM-DD HH:MM <stage>: <note>", in local time:
 each stage runs from the previous timestamped line to its own.
 
@@ -143,14 +143,37 @@ def is_wait(q):
     return True
 
 
+def codex_cwd(path):
+    """The working folder a Codex rollout recorded in its session_meta line, or None."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for _ in range(5):
+                line = f.readline()
+                if not line:
+                    break
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                if rec.get("type") == "session_meta":
+                    return (rec.get("payload") or {}).get("cwd")
+    except OSError:
+        pass
+    return None
+
+
 def find_latest():
-    cwd_key = re.sub(r"[^A-Za-z0-9]", "-", os.getcwd())
+    cwd = os.getcwd()
+    cwd_key = re.sub(r"[^A-Za-z0-9]", "-", cwd)
+    claude_all = glob.glob(str(HOME / ".claude/projects/*/*.jsonl"))
+    codex_home = Path(os.environ.get("CODEX_HOME") or HOME / ".codex")
+    codex_all = glob.glob(str(codex_home / "sessions/**/rollout-*.jsonl"), recursive=True)
+    folders = {cwd, os.path.realpath(cwd)}
     here = glob.glob(str(HOME / ".claude/projects" / cwd_key / "*.jsonl"))
+    here += [p for p in codex_all if codex_cwd(p) in folders]
     if here:
         return max(here, key=os.path.getmtime)
-    pool = glob.glob(str(HOME / ".claude/projects/*/*.jsonl"))
-    codex_home = Path(os.environ.get("CODEX_HOME") or HOME / ".codex")
-    pool += glob.glob(str(codex_home / "sessions/**/rollout-*.jsonl"), recursive=True)
+    pool = claude_all + codex_all
     return max(pool, key=os.path.getmtime) if pool else None
 
 

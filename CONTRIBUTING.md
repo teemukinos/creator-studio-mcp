@@ -6,7 +6,7 @@ Studio gets better through field notes. The contributions that help most are **r
 
 - **Date**, as `YYYY-MM-DD`.
 - **App name and version**, for example `Logic Pro 12.4`. Element ids and menus change between versions, so an entry without a version can't be trusted later.
-- **Evidence**: a `dryRun` status from `ui_batch`, a ledger row from `measure_session.py`, or the exact error message.
+- **Evidence**: the status file from a real `ui_batch` run, a ledger row from `measure_session.py`, or the exact error message.
 
 ## Where entries go
 

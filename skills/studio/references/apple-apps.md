@@ -19,7 +19,7 @@ Read `ui.md` first for how to drive these through menus. Prefer the direct tools
 
 ## Multi-unit jobs (variants, image sets, decks)
 
-Do direction once. Then one unit per session, running the same recipe or batch call with different vars, so N units cost one exploration plus N calls. Pixelmator image sets go in one `pixelmator_batch_process` call driven by a list of sizes, printing a PASS line per output and one contact sheet.
+Do direction once. Then one unit per session, running the same recipe or batch call with different vars, so N units cost one exploration plus N calls. Pixelmator image sets go in one `pixelmator_batch_process` call per output size: it applies one `resize` to every input. Check each output's size from the files (`pixelmator_image_info`), not from the call's result.
 
 ## Recipes
 

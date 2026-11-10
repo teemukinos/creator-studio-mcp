@@ -300,6 +300,8 @@ export function registerUi(server: McpServer): void {
     async (a) => {
       const file = join(tmpdir(), `csmcp-shot-${Date.now()}.jpg`);
       const args = ["-x", "-t", "jpg"];
+      // Without an app, the whole screen is captured: refuse while it's locked, like every other UI call.
+      if (!a.app && (await screenLocked())) throw new Error(LOCKED_MESSAGE);
       if (a.app) {
         // Capture the app's own window by id, even when it's behind other windows.
         const { windowId } = await ui(a.app, "windowId", {});

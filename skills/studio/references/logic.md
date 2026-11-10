@@ -1,6 +1,6 @@
 # Logic Pro, driven hidden
 
-Verified with Logic Pro 12.4 on 2026-11-06. Element ids can change with a Logic update: on a new version, run recipes with `dryRun: true` first and expect to re-read ids.
+Verified with Logic Pro 12.4 on 2026-11-06. Element ids can change with a Logic update: on a new version, run recipes with `dryRun: true` first to check the steps and vars (it doesn't touch Logic), then expect to re-read ids with `ui_snapshot` when a step fails.
 
 ## Recipes
 
