@@ -113,7 +113,7 @@ Safety defaults: paths must be absolute (or start with `~/`); no tool overwrites
 ## Requirements
 
 - macOS with the apps you want to use installed (any subset works)
-- Node.js 20 or later (`node --version`)
+- Node.js 22 or later (`node --version`)
 - Blender, the Rive CLI and Godot only for jobs that use them
 
 ## First run: permissions

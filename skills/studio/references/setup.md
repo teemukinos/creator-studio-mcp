@@ -6,6 +6,8 @@ In Claude chat the shell isn't on the Mac, so you can't run these steps yourself
 
 ## Install the server
 
+The server needs macOS and Node.js 22 or later. Check with `node --version`; if it's missing or older, install the current LTS from nodejs.org or with Homebrew (`brew install node`).
+
 Add one config entry per assistant. Use full paths: GUI apps don't see the shell's `PATH`. Get the path of `npx` with `which npx` and put it where `<npx path>` appears below.
 
 **Claude Code**
