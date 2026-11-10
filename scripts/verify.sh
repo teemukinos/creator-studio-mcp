@@ -708,6 +708,38 @@ c28() {
   REASON="LICENSE and the unofficial notice ship with the skill"
 }
 
+# 29. What the skill's docs promise about the scripts and tools matches the code.
+c29() {
+  local m="$SKILL/scripts/measure_session.py" fx=test/fixtures t w key got
+  t="$(tmpdir promises)"; w="$t/work"; mkdir -p "$w" "$t/home/.codex/sessions/2026/01/01"
+  # (a) --latest measures the newest session for the current folder, from Claude Code or Codex.
+  key="$(cd "$w" && python3 -c 'import os, re; print(re.sub(r"[^A-Za-z0-9]", "-", os.getcwd()))')"
+  mkdir -p "$t/home/.claude/projects/$key"
+  cp "$fx/claude-session.jsonl" "$t/home/.claude/projects/$key/s.jsonl"
+  { printf '{"type": "session_meta", "timestamp": "2026-01-01T11:00:00.000Z", "payload": {"cwd": "%s"}}\n' "$(cd "$w" && pwd -P)"
+    cat "$fx/codex-session.jsonl"; } >"$t/home/.codex/sessions/2026/01/01/rollout-x.jsonl"
+  latest() { ( cd "$w" && env -u CODEX_HOME HOME="$t/home" python3 "$ROOT/$m" --latest --ledger "$t/l.csv" >/dev/null ) && tail -n 1 "$t/l.csv" | cut -d, -f5; }
+  touch -t 202601011200 "$t/home/.claude/projects/$key/s.jsonl"; touch -t 202601011300 "$t/home/.codex/sessions/2026/01/01/rollout-x.jsonl"
+  got="$(latest)"; [ "$got" = "codex" ] || { REASON="(a) --latest took $got when the Codex session is newer"; return 1; }
+  touch -t 202601011400 "$t/home/.claude/projects/$key/s.jsonl"
+  got="$(latest)"; [ "$got" = "claude" ] || { REASON="(a) --latest took $got when the Claude Code session is newer"; return 1; }
+  # (b) The docstring names only the session folders the script searches.
+  grep -qF '.codex*' "$m" && { REASON="(b) docstring promises ~/.codex*, the script reads \$CODEX_HOME or ~/.codex"; return 1; }
+  # (c) pixelmator_batch_process takes one resize for the whole batch and makes no contact sheet.
+  grep -rqiE 'contact sheet|list of sizes' "$SKILL" && ! grep -rqi 'contact' src \
+    && { REASON="(c) docs promise a contact sheet or a list of sizes from pixelmator_batch_process"; return 1; }
+  # (d) ui_batch dryRun checks steps and vars without touching the app: it writes no status and reads no ids.
+  grep -q 'if (a.dryRun) return ok' src/tools/ui.ts || { REASON="(d) dryRun no longer returns before the app is touched"; return 1; }
+  grep -rqiE 'dryRun`? status|dryRun: true` first and expect to re-read ids' "$SKILL" CONTRIBUTING.md \
+    && { REASON="(d) docs promise a dryRun status or id check"; return 1; }
+  # (e) "every ui_* call refuses while locked" holds only if ui_screenshot checks the lock without an app too.
+  if grep -qF 'every `ui_*` call' "$SKILL/references/ui.md"; then
+    awk '/"ui_screenshot"/,/registerTool\(|^}/' src/tools/ui.ts | grep -qF 'screenLocked()' \
+      || { REASON="(e) ui.md says every ui_* call refuses while locked; ui_screenshot without app doesn't check"; return 1; }
+  fi
+  REASON="--latest, docstring, batch, dryRun and lock claims match the code"
+}
+
 PASSED=0
 TOTAL=0
 run() {
@@ -753,6 +785,7 @@ run 25 package-modes
 run 26 node-version
 run 27 contributor-checks
 run 28 skill-license
+run 29 skill-promises
 
 echo "SCORE $PASSED/$TOTAL"
 [ "$PASSED" -eq "$TOTAL" ]
