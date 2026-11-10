@@ -1,0 +1,758 @@
+{
+  "name": "logic-render",
+  "app": "logic",
+  "vars": {
+    "key": "G Minor",
+    "saveFolderName": "logic"
+  },
+  "steps": [
+    {
+      "op": "requireUnlocked",
+      "label": "screen unlocked"
+    },
+    {
+      "op": "requireClosed",
+      "label": "Logic closed, one project per launch",
+      "waitSeconds": 20
+    },
+    {
+      "op": "requireAbsent",
+      "label": "no stale bounce in Logic's Bounces folder",
+      "path": "~/Music/Logic/Bounces/Output 1-2.aif"
+    },
+    {
+      "op": "requireAbsent",
+      "label": "no old warm-up bounce in the job",
+      "path": "${workDir}/logic_bounce_warmup.aif"
+    },
+    {
+      "op": "requireAbsent",
+      "label": "no old master warm-up bounce in the job",
+      "path": "${workDir}/logic_bounce_master_warmup.aif"
+    },
+    {
+      "op": "requireAbsent",
+      "label": "no old flat bounce in the job",
+      "path": "${workDir}/logic_bounce_flat.aif"
+    },
+    {
+      "op": "requireAbsent",
+      "label": "no old master bounce in the job",
+      "path": "${workDir}/logic_bounce_master_raw.aif"
+    },
+    {
+      "op": "requireAbsent",
+      "label": "no untitled project left in the save folder",
+      "path": "${logicDir}/Project.logicx"
+    },
+    {
+      "op": "requireAbsent",
+      "label": "no project with this name yet",
+      "path": "${logicDir}/${projectName}.logicx"
+    },
+    {
+      "op": "open",
+      "label": "import the FCPXML hidden",
+      "file": "${fcpxml}"
+    },
+    {
+      "op": "click",
+      "label": "dismiss audio interface alert",
+      "text": "OK",
+      "role": "Button",
+      "exact": true,
+      "depth": 4,
+      "maxNodes": 100,
+      "waitSeconds": 45,
+      "optional": true
+    },
+    {
+      "op": "retry",
+      "label": "project window ready",
+      "times": 9,
+      "steps": [
+        {
+          "op": "waitFor",
+          "id": "0.0.13.0.2",
+          "timeoutSeconds": 20
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "text": "OK",
+          "role": "Button",
+          "exact": true,
+          "depth": 4,
+          "maxNodes": 100,
+          "waitSeconds": 2,
+          "optional": true
+        }
+      ]
+    },
+    {
+      "op": "sleep",
+      "label": "let late alerts appear",
+      "seconds": 8
+    },
+    {
+      "op": "retry",
+      "label": "alerts cleared, project window first",
+      "times": 6,
+      "steps": [
+        {
+          "op": "assert",
+          "id": "0.0.13.0.2",
+          "value": "120"
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "text": "OK",
+          "role": "Button",
+          "exact": true,
+          "depth": 4,
+          "maxNodes": 100,
+          "waitSeconds": 2,
+          "optional": true
+        },
+        {
+          "op": "sleep",
+          "seconds": 3
+        }
+      ]
+    },
+    {
+      "op": "retry",
+      "label": "set tempo",
+      "times": 3,
+      "steps": [
+        {
+          "op": "stepValue",
+          "id": "0.0.13.0.2",
+          "to": "${tempo}"
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "text": "OK",
+          "role": "Button",
+          "exact": true,
+          "depth": 4,
+          "maxNodes": 100,
+          "waitSeconds": 2,
+          "optional": true
+        },
+        {
+          "op": "sleep",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "op": "retry",
+      "label": "metronome off",
+      "times": 3,
+      "steps": [
+        {
+          "op": "assert",
+          "id": "0.0.18.0",
+          "value": "0"
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "id": "0.0.18.0"
+        },
+        {
+          "op": "sleep",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "op": "clickMenu",
+      "label": "warm-up bounce: open panel",
+      "path": [
+        "File",
+        "Bounce",
+        "Project or Section"
+      ]
+    },
+    {
+      "op": "waitFor",
+      "label": "warm-up bounce: panel open",
+      "id": "0.14",
+      "timeoutSeconds": 20
+    },
+    {
+      "op": "assert",
+      "label": "warm-up bounce: AIFF",
+      "id": "0.3.7",
+      "value": "AIFF"
+    },
+    {
+      "op": "assert",
+      "label": "warm-up bounce: 48 kHz",
+      "id": "0.3.11",
+      "value": "48 kHz"
+    },
+    {
+      "op": "assert",
+      "label": "warm-up bounce: 24-bit",
+      "id": "0.3.12",
+      "value": "24-bit"
+    },
+    {
+      "op": "assert",
+      "label": "warm-up bounce: no dither",
+      "id": "0.3.9",
+      "value": "None"
+    },
+    {
+      "op": "retry",
+      "label": "warm-up bounce: Normalize off",
+      "times": 3,
+      "steps": [
+        {
+          "op": "assert",
+          "id": "0.14",
+          "value": "Off"
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "id": "0.14"
+        },
+        {
+          "op": "click",
+          "id": "0.14.0.0",
+          "waitSeconds": 5,
+          "optional": true
+        }
+      ]
+    },
+    {
+      "op": "click",
+      "label": "warm-up bounce: OK",
+      "id": "0.2"
+    },
+    {
+      "op": "click",
+      "label": "warm-up bounce: start",
+      "text": "Bounce",
+      "role": "Button",
+      "exact": true,
+      "within": "0",
+      "waitSeconds": 90,
+      "requireEnabled": true
+    },
+    {
+      "op": "waitFile",
+      "label": "warm-up bounce: finished",
+      "path": "~/Music/Logic/Bounces/Output 1-2.aif",
+      "stableSeconds": 8,
+      "timeoutSeconds": 1200
+    },
+    {
+      "op": "moveFile",
+      "label": "warm-up bounce: move to job",
+      "from": "~/Music/Logic/Bounces/Output 1-2.aif",
+      "to": "${workDir}/logic_bounce_warmup.aif"
+    },
+    {
+      "op": "clickMenu",
+      "label": "flat bounce: open panel",
+      "path": [
+        "File",
+        "Bounce",
+        "Project or Section"
+      ]
+    },
+    {
+      "op": "waitFor",
+      "label": "flat bounce: panel open",
+      "id": "0.14",
+      "timeoutSeconds": 20
+    },
+    {
+      "op": "assert",
+      "label": "flat bounce: AIFF",
+      "id": "0.3.7",
+      "value": "AIFF"
+    },
+    {
+      "op": "assert",
+      "label": "flat bounce: 48 kHz",
+      "id": "0.3.11",
+      "value": "48 kHz"
+    },
+    {
+      "op": "assert",
+      "label": "flat bounce: 24-bit",
+      "id": "0.3.12",
+      "value": "24-bit"
+    },
+    {
+      "op": "assert",
+      "label": "flat bounce: no dither",
+      "id": "0.3.9",
+      "value": "None"
+    },
+    {
+      "op": "retry",
+      "label": "flat bounce: Normalize off",
+      "times": 3,
+      "steps": [
+        {
+          "op": "assert",
+          "id": "0.14",
+          "value": "Off"
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "id": "0.14"
+        },
+        {
+          "op": "click",
+          "id": "0.14.0.0",
+          "waitSeconds": 5,
+          "optional": true
+        }
+      ]
+    },
+    {
+      "op": "click",
+      "label": "flat bounce: OK",
+      "id": "0.2"
+    },
+    {
+      "op": "click",
+      "label": "flat bounce: start",
+      "text": "Bounce",
+      "role": "Button",
+      "exact": true,
+      "within": "0",
+      "waitSeconds": 90,
+      "requireEnabled": true
+    },
+    {
+      "op": "waitFile",
+      "label": "flat bounce: finished",
+      "path": "~/Music/Logic/Bounces/Output 1-2.aif",
+      "stableSeconds": 8,
+      "timeoutSeconds": 1200
+    },
+    {
+      "op": "moveFile",
+      "label": "flat bounce: move to job",
+      "from": "~/Music/Logic/Bounces/Output 1-2.aif",
+      "to": "${workDir}/logic_bounce_flat.aif"
+    },
+    {
+      "op": "clickMenu",
+      "label": "Mastering Assistant on the Stereo Out",
+      "path": [
+        "Mix",
+        "Mastering Assistant"
+      ]
+    },
+    {
+      "op": "sleep",
+      "seconds": 3
+    },
+    {
+      "op": "click",
+      "label": "close the plug-in window",
+      "text": "close",
+      "role": "Button",
+      "exact": true,
+      "within": "0",
+      "depth": 1,
+      "maxNodes": 20,
+      "waitSeconds": 30
+    },
+    {
+      "op": "retry",
+      "label": "master warm-up bounce: open panel",
+      "times": 40,
+      "steps": [
+        {
+          "op": "clickMenu",
+          "path": [
+            "File",
+            "Bounce",
+            "Project or Section"
+          ]
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "label": "dismiss any Logic alert",
+          "text": "OK",
+          "role": "Button",
+          "exact": true,
+          "depth": 4,
+          "maxNodes": 100,
+          "waitSeconds": 2,
+          "optional": true
+        },
+        {
+          "op": "sleep",
+          "seconds": 3
+        }
+      ]
+    },
+    {
+      "op": "waitFor",
+      "label": "master warm-up bounce: panel open",
+      "id": "0.14",
+      "timeoutSeconds": 20
+    },
+    {
+      "op": "assert",
+      "label": "master warm-up bounce: AIFF",
+      "id": "0.3.7",
+      "value": "AIFF"
+    },
+    {
+      "op": "assert",
+      "label": "master warm-up bounce: 48 kHz",
+      "id": "0.3.11",
+      "value": "48 kHz"
+    },
+    {
+      "op": "assert",
+      "label": "master warm-up bounce: 24-bit",
+      "id": "0.3.12",
+      "value": "24-bit"
+    },
+    {
+      "op": "assert",
+      "label": "master warm-up bounce: no dither",
+      "id": "0.3.9",
+      "value": "None"
+    },
+    {
+      "op": "retry",
+      "label": "master warm-up bounce: Normalize off",
+      "times": 3,
+      "steps": [
+        {
+          "op": "assert",
+          "id": "0.14",
+          "value": "Off"
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "id": "0.14"
+        },
+        {
+          "op": "click",
+          "id": "0.14.0.0",
+          "waitSeconds": 5,
+          "optional": true
+        }
+      ]
+    },
+    {
+      "op": "click",
+      "label": "master warm-up bounce: OK",
+      "id": "0.2"
+    },
+    {
+      "op": "click",
+      "label": "master warm-up bounce: start",
+      "text": "Bounce",
+      "role": "Button",
+      "exact": true,
+      "within": "0",
+      "waitSeconds": 90,
+      "requireEnabled": true
+    },
+    {
+      "op": "waitFile",
+      "label": "master warm-up bounce: finished",
+      "path": "~/Music/Logic/Bounces/Output 1-2.aif",
+      "stableSeconds": 8,
+      "timeoutSeconds": 1200
+    },
+    {
+      "op": "moveFile",
+      "label": "master warm-up bounce: move to job",
+      "from": "~/Music/Logic/Bounces/Output 1-2.aif",
+      "to": "${workDir}/logic_bounce_master_warmup.aif"
+    },
+    {
+      "op": "retry",
+      "label": "master bounce: open panel",
+      "times": 40,
+      "steps": [
+        {
+          "op": "clickMenu",
+          "path": [
+            "File",
+            "Bounce",
+            "Project or Section"
+          ]
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "label": "dismiss any Logic alert",
+          "text": "OK",
+          "role": "Button",
+          "exact": true,
+          "depth": 4,
+          "maxNodes": 100,
+          "waitSeconds": 2,
+          "optional": true
+        },
+        {
+          "op": "sleep",
+          "seconds": 3
+        }
+      ]
+    },
+    {
+      "op": "waitFor",
+      "label": "master bounce: panel open",
+      "id": "0.14",
+      "timeoutSeconds": 20
+    },
+    {
+      "op": "assert",
+      "label": "master bounce: AIFF",
+      "id": "0.3.7",
+      "value": "AIFF"
+    },
+    {
+      "op": "assert",
+      "label": "master bounce: 48 kHz",
+      "id": "0.3.11",
+      "value": "48 kHz"
+    },
+    {
+      "op": "assert",
+      "label": "master bounce: 24-bit",
+      "id": "0.3.12",
+      "value": "24-bit"
+    },
+    {
+      "op": "assert",
+      "label": "master bounce: no dither",
+      "id": "0.3.9",
+      "value": "None"
+    },
+    {
+      "op": "retry",
+      "label": "master bounce: Normalize off",
+      "times": 3,
+      "steps": [
+        {
+          "op": "assert",
+          "id": "0.14",
+          "value": "Off"
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "id": "0.14"
+        },
+        {
+          "op": "click",
+          "id": "0.14.0.0",
+          "waitSeconds": 5,
+          "optional": true
+        }
+      ]
+    },
+    {
+      "op": "click",
+      "label": "master bounce: OK",
+      "id": "0.2"
+    },
+    {
+      "op": "click",
+      "label": "master bounce: start",
+      "text": "Bounce",
+      "role": "Button",
+      "exact": true,
+      "within": "0",
+      "waitSeconds": 90,
+      "requireEnabled": true
+    },
+    {
+      "op": "waitFile",
+      "label": "master bounce: finished",
+      "path": "~/Music/Logic/Bounces/Output 1-2.aif",
+      "stableSeconds": 8,
+      "timeoutSeconds": 1200
+    },
+    {
+      "op": "moveFile",
+      "label": "master bounce: move to job",
+      "from": "~/Music/Logic/Bounces/Output 1-2.aif",
+      "to": "${workDir}/logic_bounce_master_raw.aif"
+    },
+    {
+      "op": "retry",
+      "label": "set key",
+      "times": 4,
+      "steps": [
+        {
+          "op": "click",
+          "id": "0.0.13.0.5",
+          "waitSeconds": 20
+        },
+        {
+          "op": "click",
+          "text": "${key}",
+          "role": "MenuItem",
+          "exact": true,
+          "within": "0.0.13.0.5",
+          "depth": 3,
+          "maxNodes": 80,
+          "waitSeconds": 5
+        },
+        {
+          "op": "sleep",
+          "seconds": 3
+        },
+        {
+          "op": "assert",
+          "id": "0.0.13.0.5",
+          "value": "${key}"
+        }
+      ],
+      "onFail": [
+        {
+          "op": "keys",
+          "key": "escape",
+          "optional": true
+        },
+        {
+          "op": "sleep",
+          "seconds": 2
+        }
+      ],
+      "optional": true
+    },
+    {
+      "op": "retry",
+      "label": "get a save panel at the job folder",
+      "times": 4,
+      "steps": [
+        {
+          "op": "clickMenu",
+          "path": [
+            "File",
+            "Close Project"
+          ]
+        },
+        {
+          "op": "click",
+          "text": "Save",
+          "role": "Button",
+          "exact": true,
+          "within": "0",
+          "depth": 1,
+          "maxNodes": 20,
+          "waitSeconds": 20
+        },
+        {
+          "op": "waitFor",
+          "id": "0.0.26",
+          "timeoutSeconds": 20
+        },
+        {
+          "op": "assert",
+          "id": "0.0.6",
+          "value": "${saveFolderName}"
+        },
+        {
+          "op": "assert",
+          "id": "0.0.10",
+          "value": "Project"
+        },
+        {
+          "op": "waitFor",
+          "id": "0.0.26",
+          "enabled": true,
+          "timeoutSeconds": 10
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "id": "0.0.25",
+          "optional": true
+        },
+        {
+          "op": "sleep",
+          "seconds": 2
+        }
+      ]
+    },
+    {
+      "op": "click",
+      "label": "save",
+      "id": "0.0.26",
+      "requireEnabled": true
+    },
+    {
+      "op": "waitFile",
+      "label": "project saved",
+      "path": "${logicDir}/Project.logicx/Alternatives/000/ProjectData",
+      "stableSeconds": 5,
+      "timeoutSeconds": 180
+    },
+    {
+      "op": "moveFile",
+      "label": "name the project",
+      "from": "${logicDir}/Project.logicx",
+      "to": "${logicDir}/${projectName}.logicx"
+    },
+    {
+      "op": "retry",
+      "label": "quit Logic",
+      "times": 4,
+      "steps": [
+        {
+          "op": "clickMenu",
+          "path": [
+            "Logic Pro",
+            "Quit Logic Pro"
+          ]
+        }
+      ],
+      "onFail": [
+        {
+          "op": "click",
+          "text": "OK",
+          "role": "Button",
+          "exact": true,
+          "depth": 3,
+          "maxNodes": 60,
+          "waitSeconds": 2,
+          "optional": true
+        },
+        {
+          "op": "sleep",
+          "seconds": 2
+        }
+      ]
+    }
+  ]
+}
