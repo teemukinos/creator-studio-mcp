@@ -47,7 +47,15 @@ export function outputFile(p: string, opts: { overwrite?: boolean; inputs?: stri
   return path;
 }
 
+/** Other common spellings of an extension the tools add, so out.jpeg stays out.jpeg. */
+const EXT_ALIASES: Record<string, readonly string[]> = {
+  ".jpg": [".jpeg"],
+  ".tiff": [".tif"],
+};
+
 /** Make sure a path has the given extension (adds it if missing). */
 export function withExt(path: string, ext: string): string {
-  return extname(path).toLowerCase() === ext.toLowerCase() ? path : `${path}${ext}`;
+  const want = ext.toLowerCase();
+  const have = extname(path).toLowerCase();
+  return have === want || EXT_ALIASES[want]?.includes(have) ? path : `${path}${ext}`;
 }

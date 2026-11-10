@@ -46,7 +46,14 @@ export function outputFile(p, opts = {}) {
     mkdirSync(dirname(path), { recursive: true });
     return path;
 }
+/** Other common spellings of an extension the tools add, so out.jpeg stays out.jpeg. */
+const EXT_ALIASES = {
+    ".jpg": [".jpeg"],
+    ".tiff": [".tif"],
+};
 /** Make sure a path has the given extension (adds it if missing). */
 export function withExt(path, ext) {
-    return extname(path).toLowerCase() === ext.toLowerCase() ? path : `${path}${ext}`;
+    const want = ext.toLowerCase();
+    const have = extname(path).toLowerCase();
+    return have === want || EXT_ALIASES[want]?.includes(have) ? path : `${path}${ext}`;
 }

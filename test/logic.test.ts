@@ -7,7 +7,7 @@ import { buildProcessScript, buildInfoScript, buildReplaceTextScript, PXM_OPS } 
 import { buildListLibrariesScript, buildImportScript } from "../src/scripts/finalcut.ts";
 import { compressorArgs, pickSetting } from "../src/compressor.ts";
 import { parseMdls } from "../src/media.ts";
-import { absPath, outputFile } from "../src/paths.ts";
+import { absPath, outputFile, withExt } from "../src/paths.ts";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -196,6 +196,16 @@ test("paths: absolute only, no clobbering, never over the input", () => {
   assert.equal(outputFile(f, { overwrite: true }), f);
   assert.throws(() => outputFile(f, { overwrite: true, inputs: [f] }), /overwrite the input/);
   assert.equal(outputFile(join(dir, "new/sub/b.png")), join(dir, "new/sub/b.png"));
+});
+
+test("paths: withExt keeps a matching extension, including .jpeg and .tif", () => {
+  assert.equal(withExt("/tmp/a.jpg", ".jpg"), "/tmp/a.jpg");
+  assert.equal(withExt("/tmp/a.jpeg", ".jpg"), "/tmp/a.jpeg");
+  assert.equal(withExt("/tmp/a.JPEG", ".jpg"), "/tmp/a.JPEG");
+  assert.equal(withExt("/tmp/a.tif", ".tiff"), "/tmp/a.tif");
+  assert.equal(withExt("/tmp/a", ".jpg"), "/tmp/a.jpg");
+  assert.equal(withExt("/tmp/a.png", ".jpg"), "/tmp/a.png.jpg");
+  assert.equal(withExt("/tmp/a.jpeg", ".png"), "/tmp/a.jpeg.png");
 });
 
 import { parseSettingXml } from "../src/compressor.ts";
