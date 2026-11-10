@@ -135,7 +135,7 @@ test("FCPXML timeline: offsets, trims, markers, escaping", () => {
     projectName: 'Cut "A"',
     frameRate: "25",
     resolution: "1080p",
-    libraryLocation: "/Users/me/Movies/My Lib",
+    libraryLocation: "/Volumes/Media/Movies/My Lib",
     clips: [
       { path: "/Media/A clip.mov", media: { durationSeconds: 10, hasVideo: true, hasAudio: true }, in: 2, out: 6, markers: [{ at: 1, name: "Beat", kind: "chapter" }, { at: 99, name: "late" }] },
       { path: "/Media/B#1.mov", name: "B", media: { durationSeconds: 3, hasVideo: true, hasAudio: false }, out: 50 },
@@ -150,7 +150,7 @@ test("FCPXML timeline: offsets, trims, markers, escaping", () => {
   assert.match(built.xml, /name="Cut &quot;A&quot;"/);
   assert.match(built.xml, /src="file:\/\/\/Media\/A%20clip\.mov"/);
   assert.match(built.xml, /src="file:\/\/\/Media\/B%231\.mov"/);
-  assert.match(built.xml, /value="file:\/\/\/Users\/me\/Movies\/My%20Lib\.fcpbundle"/);
+  assert.match(built.xml, /value="file:\/\/\/Volumes\/Media\/Movies\/My%20Lib\.fcpbundle"/);
   assert.match(built.xml, /<fcpxml version="1\.11">\n  <import-options>/);
   assert.equal(built.warnings.length, 2);
   assert.match(built.xml, /name="FFVideoFormat1080p25" frameDuration="100\/2500s"/);

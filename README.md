@@ -90,7 +90,7 @@ npm run build
   "mcpServers": {
     "creator-studio": {
       "command": "/opt/homebrew/bin/node",
-      "args": ["/Users/YOU/creator-studio-mcp/dist/index.js"]
+      "args": ["/path/to/creator-studio-mcp/dist/index.js"]
     }
   }
 }
@@ -98,7 +98,7 @@ npm run build
 
 3. Quit Claude completely and reopen it. The tools appear under the connectors menu in the message box.
 
-For Claude Code: `claude mcp add creator-studio -- node /Users/YOU/creator-studio-mcp/dist/index.js`
+For Claude Code: `claude mcp add creator-studio -- node /path/to/creator-studio-mcp/dist/index.js`
 
 ## First run: permissions
 
