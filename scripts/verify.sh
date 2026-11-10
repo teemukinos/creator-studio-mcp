@@ -4,6 +4,7 @@
 #   scripts/verify.sh [--skip N[,N...]]
 #
 # Prints one line per check (PASS, FAIL or SKIP, with a short reason), then "SCORE n/N".
+# A SKIP is left out of the score when CI=true; in a local run it counts as a failure.
 # Full output of each check goes to .verify/logs/.
 set -uo pipefail
 
@@ -412,6 +413,255 @@ c18() {
   REASON="inbox moved, personal skill updated"
 }
 
+# --- Release checks 19-25 -----------------------------------------------------------------
+# A check returns 2 to SKIP. With CI=true a SKIP is left out of the score; locally it counts as a failure.
+PROBE="$ROOT/scripts/mcp_probe.mjs"
+TGZ=""
+tmpdir() { mktemp -d "${TMPDIR:-/tmp}/verify-$1.XXXXXX"; }
+clean_env() { env -u CODEX_HOME -u CLAUDE_CONFIG_DIR -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME -u XDG_CACHE_HOME "$@"; }
+local_only() {
+  [ "${CI:-}" = "true" ] && { REASON="local only (CI=true)"; return 0; }
+  return 1
+}
+# Pack the repository once per run, into a fresh temp folder. Sets TGZ.
+ensure_tgz() {
+  [ -n "$TGZ" ] && [ -f "$TGZ" ] && return 0
+  local d; d="$(tmpdir pack)"
+  npm pack --pack-destination "$d" >/dev/null || return 1
+  TGZ="$(ls "$d"/*.tgz 2>/dev/null | head -n 1)"
+  [ -n "$TGZ" ]
+}
+# probe_eval <probe output> <function body over r, the probe report>: prints what it returns, exits 1 when it throws.
+probe_eval() {
+  node -e '
+    const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    try { console.log((0, eval)("(r) => {" + process.argv[2] + "}")(r)); }
+    catch (e) { console.log(e.message); process.exit(1); }' "$1" "$2"
+}
+HANDSHAKE_38='if (!r.ok) throw new Error("no handshake: " + (r.error || "") + " " + r.stderr.slice(-120));
+  if (r.tools.length < 38) throw new Error("only " + r.tools.length + " tools");'
+
+# 19. The packed tarball installs and runs the way a user gets it from npm.
+c19() {
+  ensure_tgz || { REASON="npm pack failed"; return 1; }
+  local t out
+  t="$(tmpdir tarball)"
+  mkdir -p "$t/home" "$t/cache"
+  echo '[{"name": "creator_studio_status", "timeout": 60000}]' >"$t/calls.json"
+  ( cd "$t" && clean_env HOME="$t/home" npm_config_cache="$t/cache" \
+      node "$PROBE" "$t/calls.json" -- npx -y --package "$TGZ" creator-studio-mcp ) >"$t/out.json"
+  cat "$t/out.json"
+  out="$(probe_eval "$t/out.json" "$HANDSHAKE_38
+    const c = r.calls[0];
+    if (!c || c.status !== 'OK') throw new Error('creator_studio_status: ' + (c ? c.status + ' ' + c.text.slice(0, 60) : r.error));
+    return r.tools.length + ' tools from the tarball, creator_studio_status OK';")" || { REASON="$out"; return 1; }
+  REASON="$out"
+}
+
+# 20. The setup paths in references/setup.md work, with the tarball in place of the npm version.
+c20() {
+  local f="$SKILL/references/setup.md" t npxp nodedir nodebin out cmdline parts=""
+  [ -f "$f" ] || { REASON="setup.md missing"; return 1; }
+  ensure_tgz || { REASON="npm pack failed"; return 1; }
+  t="$(tmpdir setup)"
+  mkdir -p "$t/home" "$t/codex" "$t/cache" "$t/src"
+  npxp="$(command -v npx)"; nodebin="$(command -v node)"; nodedir="$(dirname "$nodebin")"
+  ln -s "$ROOT" "$t/src/creator-studio-mcp"
+  python3 - "$f" "$t" "$TGZ" "$npxp" "$nodedir" "$t/src/creator-studio-mcp" <<'PY' || { REASON="setup.md: $(tail -n 1 "$LOG")"; return 1; }
+import json, re, sys
+src, t, tgz, npx, nodedir, clone_src = sys.argv[1:]
+text = open(src, encoding="utf-8").read()
+blocks = re.findall(r"```(\w*)\n(.*?)```", text, re.S)
+def one(lang, needle):
+    hits = [b for l, b in blocks if l == lang and needle in b]
+    if len(hits) != 1:
+        sys.exit(f"expected one {lang} block with {needle!r}, found {len(hits)}")
+    return hits[0]
+def sub_args(s):
+    s, n = re.subn(r'"creator-studio-mcp@[^"]+"', f'"--package", "{tgz}", "creator-studio-mcp"', s)
+    if n != 1:
+        sys.exit("no creator-studio-mcp@<version> argument")
+    return s.replace("<npx path>", npx)
+claude = one("sh", "claude mcp add --scope user creator-studio -- npx")
+claude, n = re.subn(r"creator-studio-mcp@\S+", f"--package '{tgz}' creator-studio-mcp", claude.strip())
+if n != 1:
+    sys.exit("claude command has no creator-studio-mcp@<version>")
+open(f"{t}/claude.sh", "w").write(claude + "\n")
+open(f"{t}/codex/config.toml", "w").write(sub_args(one("toml", "[mcp_servers.creator-studio]")))
+open(f"{t}/desktop.json", "w").write(sub_args(one("json", '"mcpServers"')))
+m = re.search(r'`("env":\s*\{[^`]*\})`', text)
+if not m:
+    sys.exit("no JSON env PATH fix")
+fix = json.loads("{" + m.group(1) + "}")["env"]
+json.dump({k: v.replace("<node folder>", nodedir) for k, v in fix.items()}, open(f"{t}/envfix.json", "w"))
+clone = one("sh", "git clone")
+clone, n = re.subn(r"https://github\.com/\S+", clone_src, clone)
+if n != 1:
+    sys.exit("clone block has no repository URL")
+open(f"{t}/clone.sh", "w").write("set -e\n" + clone)
+PY
+  local E="clean_env HOME=$t/home CODEX_HOME=$t/codex npm_config_cache=$t/cache"
+
+  # (a) Claude Code
+  if command -v claude >/dev/null 2>&1; then
+    ( cd "$t" && $E sh "$t/claude.sh" && $E claude mcp list ) >"$t/claude.out" 2>&1
+    cat "$t/claude.out"
+    grep -E '^creator-studio:.*Connected' "$t/claude.out" >/dev/null || { REASON="(a) claude mcp list does not show Connected"; return 1; }
+    parts="${parts}a"
+  else parts="${parts} (a skipped)"; fi
+
+  # (b) Codex
+  if command -v codex >/dev/null 2>&1; then
+    ( cd "$t" && $E codex mcp list ) >"$t/codex.out" 2>&1
+    cat "$t/codex.out"
+    grep -E '^creator-studio .*enabled' "$t/codex.out" >/dev/null || { REASON="(b) codex mcp list does not show it enabled"; return 1; }
+    parts="${parts}b"
+  else parts="${parts} (b skipped)"; fi
+
+  # (c) Claude desktop JSON
+  node -e '
+    const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    const e = j.mcpServers["creator-studio"];
+    if (!e || !e.command || !Array.isArray(e.args)) process.exit(1);' "$t/desktop.json" \
+    || { REASON="(c) desktop JSON does not parse or lacks creator-studio"; return 1; }
+  parts="${parts}c"
+
+  # (d) Without node on PATH the entry fails the way setup.md says; with its env fix it boots.
+  cmdline="$(node -e 'const e = require(process.argv[1]).mcpServers["creator-studio"]; console.log([e.command, ...e.args].map((a) => JSON.stringify(a)).join(" "))' "$t/desktop.json")"
+  ( cd "$t" && eval "$E PATH=/usr/bin:/bin \"$nodebin\" \"$PROBE\" - -- $cmdline" ) >"$t/nopath.json"
+  cat "$t/nopath.json"
+  grep -qF 'env: node: No such file or directory' "$t/nopath.json" || { REASON="(d) no 'env: node' error without node on PATH"; return 1; }
+  ( cd "$t" && eval "$E PATH=\"$(node -p 'require(process.argv[1]).PATH' "$t/envfix.json")\" \"$nodebin\" \"$PROBE\" - -- $cmdline" ) >"$t/fixed.json"
+  cat "$t/fixed.json"
+  out="$(probe_eval "$t/fixed.json" "$HANDSHAKE_38 return 'ok';")" || { REASON="(d) with the env fix: $out"; return 1; }
+  parts="${parts}d"
+
+  # (e) The clone fallback, from this repository's committed state.
+  ( cd "$t" && $E sh "$t/clone.sh" ) || { REASON="(e) clone block failed: $(first_error)"; return 1; }
+  $E node "$PROBE" - -- node "$t/creator-studio-mcp/dist/index.js" >"$t/clone.json"
+  cat "$t/clone.json"
+  out="$(probe_eval "$t/clone.json" "$HANDSHAKE_38 return 'ok';")" || { REASON="(e) clone: $out"; return 1; }
+  parts="${parts}e"
+  REASON="setup.md paths work: $parts"
+  case "$parts" in *skipped*) [ "${CI:-}" = "true" ] || return 2 ;; esac
+}
+
+# 21. Real apps, driven over stdio through the tarball's server; results checked from files in a temp folder.
+c21() {
+  local_only && return 2
+  [ -f scripts/smoke.mjs ] || { REASON="scripts/smoke.mjs missing"; return 1; }
+  ensure_tgz || { REASON="npm pack failed"; return 1; }
+  local t out rc
+  t="$(tmpdir apps)"
+  mkdir -p "$t/cache"
+  out="$(cd "$t" && npm_config_cache="$t/cache" node "$ROOT/scripts/smoke.mjs" "$t" -- npx -y --package "$TGZ" creator-studio-mcp)"
+  rc=$?
+  echo "$out"
+  REASON="$(echo "$out" | tail -n 1)"
+  [ "$rc" -eq 0 ]
+}
+
+# 22. SOURCE_DIR plus the pending patches builds, passes its tests and matches this repository's src/ and dist/.
+c22() {
+  local_only && return 2
+  local s="${CSMCP_SOURCE_DIR:-}" t p n=0
+  [ -n "$s" ] || { REASON="CSMCP_SOURCE_DIR not set"; return 2; }
+  [ -d "$s/src" ] || { REASON="CSMCP_SOURCE_DIR has no src/"; return 1; }
+  t="$(tmpdir source)/src"
+  mkdir -p "$t"
+  ( cd "$s" && tar --exclude ./node_modules -cf - . ) | ( cd "$t" && tar -xf - ) || { REASON="copy failed"; return 1; }
+  ln -s "$s/node_modules" "$t/node_modules"
+  for p in "$ROOT"/.verify/source-patches/pending/*.patch; do
+    [ -f "$p" ] || continue
+    ( cd "$t" && patch -p1 --batch --forward <"$p" ) || { REASON="$(basename "$p") does not apply"; return 1; }
+    n=$((n + 1))
+  done
+  ( cd "$t" && npm run build ) || { REASON="build failed after $n patch(es)"; return 1; }
+  ( cd "$t" && npm test ) || { REASON="npm test failed after $n patch(es)"; return 1; }
+  diff -r "$t/src" "$ROOT/src" && diff -r "$t/dist" "$ROOT/dist" \
+    || { REASON="src/ or dist/ differs after $n patch(es)"; return 1; }
+  REASON="$n pending patch(es) apply; build and tests pass; src/ and dist/ identical"
+}
+
+# 23. README.md documents exactly the tools the server lists.
+c23() {
+  local t out rc
+  t="$(tmpdir docs)"
+  node "$PROBE" - -- node dist/index.js >"$t/tools.json"
+  out="$(node -e '
+    const fs = require("fs");
+    const r = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    if (!r.ok) { console.log("no handshake"); process.exit(1); }
+    const doc = new Set();
+    for (const line of fs.readFileSync("README.md", "utf8").split("\n")) {
+      if (!line.startsWith("|")) continue;
+      for (const m of line.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g)) doc.add(m[1]);
+    }
+    const tools = new Set(r.tools);
+    const undoc = r.tools.filter((n) => !doc.has(n));
+    const extra = [...doc].filter((n) => !tools.has(n));
+    console.error("undocumented:", undoc.join(" ") || "-", "| documented but not a tool:", extra.join(" ") || "-");
+    if (undoc.length || extra.length) {
+      console.log((undoc.length ? "undocumented: " + undoc.join(" ") + " " : "") + (extra.length ? "not a tool: " + extra.join(" ") : ""));
+      process.exit(1);
+    }
+    console.log(tools.size + " tools, all documented, no extras");' "$t/tools.json")"
+  rc=$?
+  REASON="$out"
+  [ "$rc" -eq 0 ]
+}
+
+# 24. A committed list maps every tool, once, to how it is verified.
+c24() {
+  local t out rc
+  [ -f scripts/smoke.mjs ] || { REASON="scripts/smoke.mjs missing"; return 1; }
+  t="$(tmpdir coverage)"
+  node "$PROBE" - -- node dist/index.js >"$t/tools.json"
+  out="$(SMOKE_MJS="$ROOT/scripts/smoke.mjs" TOOLS_JSON="$t/tools.json" node --input-type=module -e '
+    import { readFileSync, readdirSync } from "node:fs";
+    const { COVERAGE, SMOKE_TOOLS } = await import(process.env.SMOKE_MJS);
+    const r = JSON.parse(readFileSync(process.env.TOOLS_JSON, "utf8"));
+    if (!r.ok) { console.log("no handshake"); process.exit(1); }
+    const titles = readdirSync("test").filter((f) => f.endsWith(".test.ts"))
+      .flatMap((f) => [...readFileSync("test/" + f, "utf8").matchAll(/^test\("([^"]+)"/gm)].map((m) => m[1]));
+    const bad = [];
+    const count = {};
+    for (const c of COVERAGE) {
+      count[c.tool] = (count[c.tool] || 0) + 1;
+      if (c.how === "unit test") { if (!titles.includes(c.detail)) bad.push(c.tool + ": no test titled " + JSON.stringify(c.detail)); }
+      else if (c.how === "check 21") { if (!SMOKE_TOOLS.includes(c.tool)) bad.push(c.tool + ": not called by the smoke run"); }
+      else if (c.how === "not exercised") { if (!c.detail || !c.detail.trim()) bad.push(c.tool + ": no reason"); }
+      else bad.push(c.tool + ": unknown kind " + c.how);
+    }
+    for (const n of r.tools) if (count[n] !== 1) bad.push(n + " listed " + (count[n] || 0) + " times");
+    for (const n of Object.keys(count)) if (!r.tools.includes(n)) bad.push(n + " is not a tool");
+    for (const n of SMOKE_TOOLS) if (!COVERAGE.some((c) => c.tool === n && c.how === "check 21")) bad.push(n + " is smoke-called but not mapped to check 21");
+    bad.forEach((b) => console.error(b));
+    if (bad.length) { console.log(bad.length + " problem(s): " + bad[0]); process.exit(1); }
+    const by = {};
+    for (const c of COVERAGE) by[c.how] = (by[c.how] || 0) + 1;
+    console.log(Object.entries(by).map(([k, v]) => v + " " + k).join(", "));')"
+  rc=$?
+  REASON="$out"
+  [ "$rc" -eq 0 ]
+}
+
+# 25. Files in the npm tarball have clean modes: 644, and 755 for the bin.
+c25() {
+  ensure_tgz || { REASON="npm pack failed"; return 1; }
+  local bin bad
+  bin="package/$(node -p 'Object.values(require("./package.json").bin)[0].replace(/^\.\//, "")')"
+  tar -tvzf "$TGZ" >"$LOG.list" || { REASON="tarball unreadable"; return 1; }
+  cat "$LOG.list"
+  bad="$(awk -v bin="$bin" '{ want = ($NF == bin) ? "-rwxr-xr-x" : "-rw-r--r--"; if ($1 != want) print $1, $NF }' "$LOG.list")"
+  if [ -n "$bad" ]; then
+    echo "BAD: $bad"
+    REASON="$(echo "$bad" | wc -l | tr -d ' ') file(s) with the wrong mode: $(echo "$bad" | head -n 1)"
+    return 1
+  fi
+  REASON="$(wc -l <"$LOG.list" | tr -d ' ') files, modes clean"
+}
+
 PASSED=0
 TOTAL=0
 run() {
@@ -420,12 +670,12 @@ run() {
   LOG="$LOGS/$(printf '%02d' "$n")-$name.log"
   REASON=""
   TOTAL=$((TOTAL + 1))
-  if "c$n" >"$LOG" 2>&1; then
-    PASSED=$((PASSED + 1))
-    status=PASS
-  else
-    status=FAIL
-  fi
+  "c$n" >"$LOG" 2>&1
+  case $? in
+    0) PASSED=$((PASSED + 1)); status=PASS ;;
+    2) status=SKIP; [ "${CI:-}" = "true" ] && TOTAL=$((TOTAL - 1)) ;;
+    *) status=FAIL ;;
+  esac
   printf '%s %2d %s: %s\n' "$status" "$n" "$name" "${REASON:-see ${LOG#"$ROOT"/}}" | cut -c1-120
 }
 
@@ -447,6 +697,13 @@ run 15 script-tests
 run 16 ci
 run 17 git-hygiene
 run 18 local-fixes
+run 19 tarball-install
+run 20 setup-paths
+run 21 real-apps
+run 22 source-sync
+run 23 docs-tools
+run 24 tool-coverage
+run 25 package-modes
 
 echo "SCORE $PASSED/$TOTAL"
 [ "$PASSED" -eq "$TOTAL" ]
