@@ -691,6 +691,12 @@ print(hits[0] if hits else "")
 PY
 )"
   [ -n "$cmd" ] || { REASON="CONTRIBUTING.md gives no scripts/verify.sh command"; return 1; }
+  # If CONTRIBUTING.md says the command is what CI runs, it must skip what ci.yml skips.
+  if grep -qiE 'what CI runs|same as CI' CONTRIBUTING.md; then
+    local cis
+    cis="$(grep -oE 'scripts/verify.sh --skip [0-9,]+' .github/workflows/ci.yml | head -n 1)"
+    case "$cmd" in "CI=true $cis") ;; *) REASON="CONTRIBUTING.md says '$cmd' is what CI runs; CI runs '$cis'"; return 1 ;; esac
+  fi
   t="$(tmpdir contrib)"
   # A clone of HEAD, with the working tree's tracked and new files on top: the state about to be committed.
   git clone -q "$ROOT" "$t/repo" || { REASON="clone failed"; return 1; }
@@ -706,7 +712,8 @@ PY
   [ "$rc" -eq 0 ] && { REASON="'$cmd' passes in a fresh copy"; return 0; }
   probs="$(grep -oE '^FAIL +[0-9]+' "$t/out" | awk '{print $2}')"
   case "$cmd" in *CI=true*) ;; *) probs="$probs $(grep -E '^SKIP +[0-9]+ [a-z-]+:' "$t/out" | awk '{print $2}')" ;; esac
-  for n in $probs; do case "$OUTER_FAILED" in *",$n,"*) ;; *) extra="$extra $n" ;; esac; done
+  # A check this run skipped by --skip (CI skips 10) has no result to compare with, so it counts as shared.
+  for n in $probs; do case "$OUTER_FAILED$SKIP" in *",$n,"*) ;; *) extra="$extra $n" ;; esac; done
   if [ -z "$(echo $probs)" ] || [ -n "$extra" ]; then
     REASON="'$cmd' exit $rc; contributor-only failures:${extra:- none listed}"; return 1
   fi
