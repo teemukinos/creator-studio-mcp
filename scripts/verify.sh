@@ -207,12 +207,16 @@ PY
 # 8. No personal data in the public files.
 c8() {
   local pat='teemu|kinos|/Users/[a-z]|Personal/|Reworks|skene|@gmail|hot stuff|bad girls|love street|gimme shelter'
-  local t
+  # The public repository slug is required by the install instructions. Only that exact slug is exempt.
+  local slug='teemukinos/creator-studio-mcp'
+  local t hits
   for t in skills README.md CONTRIBUTING.md src test; do
     [ -e "$t" ] || { REASON="$t missing"; return 1; }
   done
-  if grep -riE "$pat" skills README.md CONTRIBUTING.md src test; then
-    REASON="$(grep -riElE "$pat" skills README.md CONTRIBUTING.md src test | wc -l | tr -d ' ') file(s) with personal data"
+  hits="$(grep -riE "$pat" skills README.md CONTRIBUTING.md src test | sed "s#$slug##g" | grep -iE "$pat")"
+  if [ -n "$hits" ]; then
+    echo "$hits"
+    REASON="$(echo "$hits" | cut -d: -f1 | sort -u | wc -l | tr -d ' ') file(s) with personal data"
     return 1
   fi
   REASON="none found"
