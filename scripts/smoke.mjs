@@ -124,6 +124,7 @@ function jpegSize(buf) {
 const pngSize = (buf) => (buf.readUInt32BE(0) === 0x89504e47 ? { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) } : null);
 
 const json = (c) => { try { return JSON.parse(c.text); } catch { return null; } };
+// Cell values compared as displayed text: numbers come back as strings.
 const cells = (v) => JSON.stringify(v).replace(/["\s]/g, '').toLowerCase();
 const has = (text, words) => words.every((w) => text.toLowerCase().includes(String(w).toLowerCase()));
 const UNTRANSLATED = /^[A-Za-z0-9_]+(Name|Key|Desc|Description)$/;
@@ -152,14 +153,14 @@ function verify(t, calls) {
     want(1, 'keynote_list_themes', (c, j) => (listLength(j) > 0 ? null : 'empty')),
     want(2, 'pages_list_templates', (c, j) => (listLength(j) > 0 ? null : 'empty')),
     want(3, 'numbers_create_spreadsheet', () => (existsSync(join(t, 'table.numbers')) ? null : 'no table.numbers')),
-    want(4, 'numbers_read_table', (c) => (has(cells(c.text), ['name', 'count', 'alpha', 'beta']) && cells(c.text).includes(cells(ROWS.slice(1)).slice(1, -1)) ? null : `rows differ: ${c.text.slice(0, 80)}`)),
+    want(4, 'numbers_read_table', (c, j) => (cells(j?.rows) === cells(ROWS) ? null : `rows differ: ${JSON.stringify(j?.rows).slice(0, 80)}`)),
     want(5, 'iwork_export csv', () => {
       const s = csvText();
       if (s == null) return 'no table.csv';
       return /alpha,1/.test(s) && /beta,2/.test(s) ? null : `csv lacks rows: ${s.slice(0, 60)}`;
     }),
     want(6, 'numbers_write_cells', () => (existsSync(join(t, 'table2.numbers')) ? null : 'no table2.numbers')),
-    want(7, 'numbers_write_cells read-back', (c) => (cells(c.text).includes('[beta,7]') ? null : `B3 is not 7: ${c.text.slice(0, 80)}`)),
+    want(7, 'numbers_write_cells read-back', (c, j) => (cells(j?.rows) === cells([...ROWS.slice(0, 2), ['beta', 7]]) ? null : `B3 is not 7: ${JSON.stringify(j?.rows).slice(0, 80)}`)),
     want(8, 'keynote_create_presentation', () => (existsSync(join(t, 'deck.key')) ? null : 'no deck.key')),
     want(9, 'keynote_read_presentation', (c) => (has(c.text, ['Smoke title', 'Smoke body', 'Smoke notes']) ? null : `slide text missing: ${c.text.slice(0, 80)}`)),
     want(10, 'pages_create_document', () => (existsSync(join(t, 'doc.pages')) ? null : 'no doc.pages')),
