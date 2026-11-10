@@ -5,6 +5,8 @@ description: Plan and produce any design, media or game job on the user's Mac, f
 
 # Studio
 
+Unofficial: this skill and the creator-studio server are not affiliated with Apple. MIT licence: see LICENSE in this folder.
+
 One skill from request to delivered files. Three layers:
 
 1. **Direction**: design skills, where installed, decide how it looks, sounds, feels and moves.
