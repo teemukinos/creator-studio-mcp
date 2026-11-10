@@ -662,6 +662,21 @@ c25() {
   REASON="$(wc -l <"$LOG.list" | tr -d ' ') files, modes clean"
 }
 
+# 26. One minimum Node version: package.json engines, README.md and setup.md state it, and CI tests it.
+c26() {
+  local eng ci rd st
+  eng="$(node -p 'require("./package.json").engines.node' | sed -nE 's/^>=([0-9]+)(\.0)*$/\1/p')"
+  ci="$(grep -E '^[[:space:]]*node-version:' .github/workflows/ci.yml | sed -E 's/.*node-version:[[:space:]]*["'\'']?([0-9]+).*/\1/' | sort -u)"
+  rd="$(grep -oE 'Node(\.js)? [0-9]+ or later' README.md | grep -oE '[0-9]+' | sort -u)"
+  st="$(grep -oE 'Node(\.js)? [0-9]+ or later' "$SKILL/references/setup.md" | grep -oE '[0-9]+' | sort -u)"
+  echo "engines=$eng ci=$ci readme=$rd setup=$st"
+  [ -n "$eng" ] || { REASON="engines.node is not a plain >=N"; return 1; }
+  [ -n "$st" ] || { REASON="setup.md does not say which Node it needs"; return 1; }
+  [ "$rd" = "$eng" ] && [ "$st" = "$eng" ] && [ "$ci" = "$eng" ] \
+    || { REASON="engines >=$eng, README $(echo $rd), setup.md $(echo $st), CI tests $(echo $ci)"; return 1; }
+  REASON="Node $eng or later, stated everywhere and tested in CI"
+}
+
 PASSED=0
 TOTAL=0
 run() {
@@ -704,6 +719,7 @@ run 22 source-sync
 run 23 docs-tools
 run 24 tool-coverage
 run 25 package-modes
+run 26 node-version
 
 echo "SCORE $PASSED/$TOTAL"
 [ "$PASSED" -eq "$TOTAL" ]
