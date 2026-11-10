@@ -74,6 +74,74 @@ function walk(dir, depth, out) {
         }
     }
 }
+/** Built-in settings name themselves by string keys such as "proRes422Name" or "4KWebShareDesc". */
+const STRING_KEY = /^[A-Za-z0-9_]+(Key|Name|Desc|Description)$/;
+/**
+ * Turn a setting's raw name and description into readable text. Keys are looked up in Compressor's
+ * own strings; an unknown key falls back to the file name for the name, and is dropped for the description.
+ */
+export function localizeSetting(meta, fileBase, strings) {
+    const look = (s) => (s && STRING_KEY.test(s) ? strings.get(s) : s);
+    const name = look(meta.name) ?? look(fileBase) ?? fileBase;
+    const description = look(meta.description);
+    return { name, description: description || undefined };
+}
+let stringsCache;
+/** Read every English .strings table in the Compressor bundle (binary plists, converted with plutil). */
+async function loadStrings(app) {
+    if (!app)
+        return new Map();
+    if (stringsCache?.app === app)
+        return stringsCache.table;
+    const files = [];
+    const find = (dir, depth) => {
+        if (depth < 0)
+            return;
+        let entries;
+        try {
+            entries = readdirSync(dir);
+        }
+        catch {
+            return;
+        }
+        for (const e of entries) {
+            const p = join(dir, e);
+            if (e.endsWith(".lproj")) {
+                if (e === "en.lproj" || e === "English.lproj" || e === "Base.lproj") {
+                    for (const f of readdirSync(p))
+                        if (f.endsWith(".strings"))
+                            files.push(join(p, f));
+                }
+                continue;
+            }
+            if (e === "_CodeSignature" || e === "Versions")
+                continue; // Versions duplicates the top-level links
+            try {
+                if (statSync(p).isDirectory())
+                    find(p, depth - 1);
+            }
+            catch {
+                /* unreadable */
+            }
+        }
+    };
+    find(join(app, "Contents"), 16);
+    const table = new Map();
+    for (const f of files) {
+        try {
+            const { stdout } = await run("plutil", ["-convert", "json", "-o", "-", f], 30_000);
+            for (const [k, v] of Object.entries(JSON.parse(stdout))) {
+                if (typeof v === "string" && !table.has(k))
+                    table.set(k, v);
+            }
+        }
+        catch {
+            /* not a plain strings table */
+        }
+    }
+    stringsCache = { app, table };
+    return table;
+}
 export async function listSettings() {
     const userDir = join(homedir(), "Library/Application Support/Compressor/Settings");
     const user = [];
@@ -87,10 +155,11 @@ export async function listSettings() {
     catch {
         /* app missing: user settings still useful */
     }
+    const strings = builtIn.length ? await loadStrings(await resolveAppPath("compressor").catch(() => "")) : new Map();
     const toSetting = (source) => (p) => {
         const meta = parseSettingXml(readHead(p));
-        const name = meta.name && !/^\S+(Key|Name|Desc)$/.test(meta.name) ? meta.name : basename(p, extname(p));
-        return { name, path: p, source, outputExtension: meta.outputExtension, description: meta.description };
+        const { name, description } = localizeSetting(meta, basename(p, extname(p)), strings);
+        return { name, path: p, source, outputExtension: meta.outputExtension, description };
     };
     // Framework bundles link Versions/A, Versions/Current and the top level to the same files.
     const seen = new Set();

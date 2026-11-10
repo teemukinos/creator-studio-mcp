@@ -214,6 +214,15 @@ test("Compressor setting XML: names decoded, extension read", () => {
   assert.deepEqual(parseSettingXml(xml), { name: "HD 1080p", description: "Export a movie", outputExtension: "m4v" });
 });
 
+import { localizeSetting } from "../src/compressor.ts";
+test("Compressor setting names: string keys are localized, unknown keys fall back", () => {
+  const strings = new Map([["proRes422Name", "Apple ProRes 422"], ["proRes422Description", "QuickTime movie with Apple ProRes 422 video."], ["4KWebShareName", "4K"]]);
+  assert.deepEqual(localizeSetting({ name: "proRes422Name", description: "proRes422Description" }, "proRes422Name", strings), { name: "Apple ProRes 422", description: "QuickTime movie with Apple ProRes 422 video." });
+  assert.deepEqual(localizeSetting({}, "4KWebShareName", strings), { name: "4K", description: undefined });
+  assert.deepEqual(localizeSetting({ name: "HD 1080p", description: "Export a movie" }, "x", strings), { name: "HD 1080p", description: "Export a movie" });
+  assert.deepEqual(localizeSetting({ name: "unknownName", description: "unknownDesc" }, "My Setting", strings), { name: "My Setting", description: undefined });
+});
+
 import { riveOpensWindow } from "../src/tools/headless.ts";
 test("Rive: only the bare project form opens a window", () => {
   assert.equal(riveOpensWindow(["mascot"]), true);
