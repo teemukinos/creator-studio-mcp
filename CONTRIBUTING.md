@@ -11,6 +11,7 @@ Studio gets better through field notes. The contributions that help most are **r
 ## Where entries go
 
 - Recipes and dead ends go under the matching heading in `skills/studio/references/<app>.md`, appended at the end of the list.
+- A script that replaces a UI route goes in `skills/studio/scripts/`, with a PASS or FAIL first line, and its use goes under the app's Recipes.
 - A `ui_batch` recipe file goes in `skills/studio/recipes/`, with a `requireAbsent` step for every file the run waits for, and its vars listed in the app's reference file.
 
 ## What to leave out

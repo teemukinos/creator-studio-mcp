@@ -30,7 +30,7 @@ One skill from request to delivered files. Three layers:
 - Scripts print at most 20 lines: PASS or FAIL, the key numbers, the log path. Full logs go to `logs/`.
 - One unit of work per session: one song, one video variant, one image set, one level, one deck. Keep state in `plan.md` so a fresh session continues. If a session passes about 250k tokens before the unit is done, update `plan.md` and stop. From the second unit on, prefer Claude Code with only the creator-studio server (`--strict-mcp-config --mcp-config <file>`).
 
-**Requirements.** A Mac, the Apple Creator Studio apps the job uses, and the `creator-studio` MCP server 0.7.1 or later (`references/setup.md`). Blender, the Rive CLI and Godot only for jobs that use them.
+**Requirements.** A Mac, the Apple Creator Studio apps the job uses, and the `creator-studio` MCP server 0.7.1 or later (`references/setup.md`). Blender, the Rive CLI and Godot only for jobs that use them; ffmpeg for headless video renders.
 
 Part A is the job flow. Part B is the tool reference. Reference files load on demand (B6).
 
@@ -171,7 +171,7 @@ All assistants share the same `creator-studio` MCP server, so its tool names wor
 | **Is a game or real-time scene** the player moves through: levels, physics, game logic, a playable demo | **Godot** | Web export (HTML5/wasm), macOS or iOS app, or `.pck` |
 | **Reacts to the user or app state** inside a web or native app: UI states, mascot, buttons, responsive onboarding | **Rive** | `.riv` + the Rive runtime for web, iOS, Unity, etc. |
 | Is **3D**: objects, scenes, characters, product shots, game models | **Blender** | `.glb` for web, three.js and Godot; PNG frames or video for film |
-| Is **video**: edits, promos, captions, vertical/square versions, trailers | **Final Cut Pro** (+ Compressor to export) | MP4/MOV |
+| Is **video**: edits, promos, captions, vertical/square versions, trailers | **Final Cut Pro** for the edit; `scripts/render_fcpxml.py` renders the cut headless; Compressor for other formats | MP4/MOV |
 | Is a **title, motion graphic or effect** that plays the same way every time | **Motion** | ProRes 4444 with alpha, PNG sequence, or a Final Cut title template |
 | Is an **image**: art, textures, sprites, sprite sheets, cutouts, upscales, social images | **Pixelmator Pro** | PNG, WebP/AVIF for web, SVG for vectors, PSD for layers |
 | Is **sound**: music, SFX, voice cleanup | **Logic Pro** for import, mastering and bounce; code for what hidden Logic can't reach (`references/logic.md`) | WAV masters; M4A/MP3 for web; OGG for Godot music |
@@ -212,6 +212,7 @@ Two kinds of tools: **direct tools** for what the apps expose to scripting (fast
 | Task | Use |
 |---|---|
 | Build or rough-cut a Final Cut timeline from files (in/out points, markers, chapters) | `finalcut_build_timeline` with `pushToFinalCut: true` and a `libraryLocation` |
+| Render a timeline to MP4 with no editor on screen | `finalcut_build_timeline` with `output`, then `scripts/render_fcpxml.py` in a Mac shell (`apple-apps.md` Recipes). Final Cut's Share can't run hidden |
 | Import an edited FCPXML | `finalcut_import_fcpxml` (always needs `libraryLocation`) |
 | See libraries, events, projects | `finalcut_list_libraries` (Final Cut must be running) |
 | Image ops: background removal, Super Resolution (×3), enhance, denoise, auto color, crop, resize, export, batch | `pixelmator_process_image` / `pixelmator_batch_process` |

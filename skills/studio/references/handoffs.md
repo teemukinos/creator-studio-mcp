@@ -18,4 +18,4 @@ Use these formats when one tool's output feeds another.
 | Motion → Final Cut | Published title/effect template, or ProRes 4444 with alpha |
 | Rive → Final Cut | Rendered video from CLI frame renders, for promos only; the live product uses the `.riv` |
 | Godot → Final Cut | PNG sequence or AVI from Movie Maker mode (`godot.md`), for trailers |
-| Final Cut → anywhere | File › Share, or Compressor (`compressor_transcode`) |
+| Final Cut → anywhere | `scripts/render_fcpxml.py` on the timeline's FCPXML (headless; cuts, gaps and in/out points only), then `compressor_transcode` for other formats. File › Share needs Final Cut in front, so only the user can run it |

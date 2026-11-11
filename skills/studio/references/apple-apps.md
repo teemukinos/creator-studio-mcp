@@ -13,7 +13,7 @@ Read `ui.md` first for how to drive these through menus. Prefer the direct tools
 ## Gotchas
 
 - **Final Cut imports need `libraryLocation`**, or Final Cut silently imports nothing. A new `.fcpbundle` path creates the library. Media already in the target library can cause a duplicate-media error; a fresh library avoids it.
-- **Final Cut has no scripted export.** Export goes through File > Share or Send to Compressor, so it is a UI route: save it as a recipe once it works.
+- **Final Cut has no scripted export, and Share can't run hidden** (Dead ends). To deliver a cut as a video file, render its FCPXML headless with `scripts/render_fcpxml.py` (Recipes).
 - **Keynote movie export** is fixed at 1080p height and written as H.264 `.m4v` (`iwork_export` format `mov`; a `.mov` path is renamed).
 - **Compressor**: use `compressor_transcode`. For several outputs, submit them all before waiting, then wait once. Compressor ships different settings under one name (for example "H.264" and "HD 1080p"): the tool refuses such a name, so pass the `path` from `compressor_list_settings`.
 
@@ -23,8 +23,9 @@ Do direction once. Then one unit per session, running the same recipe or batch c
 
 ## Recipes
 
-None verified yet. Worth saving first, as each route is proven:
-- Final Cut: import FCPXML into a fresh library, Smart Conform to vertical, File > Share with a preset, wait for the file, move it to `out/`. Vars: fcpxml, library, preset, output.
+- **Rough cut to MP4 without Final Cut** (verified 2026-11-11, ffmpeg 8): build the timeline with `finalcut_build_timeline` and an `output` path, then in a Mac shell run `python3 <skill folder>/scripts/render_fcpxml.py <timeline.fcpxml> <job>/out/<name>.mp4`. Add `--codec hevc` for HEVC (hardware encoder) and `--overwrite` to replace a file. It prints PASS only when size, frame rate, duration and audio match the timeline. It renders asset-clips and gaps in spine order: each clip cut to its in point and length, fitted into the frame with black bars, at the sequence frame rate, with 48 kHz stereo audio (silence for clips without audio). Stills work. Markers, effects, titles and connected clips are not rendered; it refuses a spine with anything else. Push the same FCPXML to Final Cut (`pushToFinalCut`) when the user also wants to edit it there. In Claude chat there is no Mac shell: give the user the command.
+
+Worth saving next, as each route is proven:
 - Motion: new project from the Project Browser (preset, frame rate, duration), import, File > Share > Export Movie.
 - Keynote: Generate Slides from Text, save, export.
 
@@ -32,4 +33,6 @@ Record app version and date with each recipe.
 
 ## Dead ends
 
-None recorded yet. Send each route that failed twice to the inbox (SKILL.md A8), with app version, date and the fallback used.
+Send each route that failed twice to the inbox (SKILL.md A8), with app version, date and the fallback used.
+
+- **Selecting a project in hidden Final Cut, for File > Share** (Final Cut Pro Creator Studio, 2026-11-11): Share needs a project selected in the browser, and an imported project isn't opened or selected. The browser's items have no Accessibility elements, and hidden Final Cut ignores sidebar selection set through Accessibility and arrow keys sent in the background. While hidden, its menus also report a stale enabled state (a closed library's Close Library item stayed listed). A real click works only with Final Cut in front, which the no-editor rule forbids. Export XML and Send to Compressor need the same selection. Fallback: `scripts/render_fcpxml.py` (Recipes); a user who wants Final Cut's own export shares by hand.

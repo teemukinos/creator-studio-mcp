@@ -9,11 +9,15 @@ The repository has two parts:
 - **The server** (this folder): the `creator-studio-mcp` npm package, which exposes the apps, plus headless Blender, the Rive CLI and Godot, as MCP tools.
 - **The `studio` skill** (`skills/studio/`): instructions that take a design, media or game job from request to delivered files, using those tools.
 
+**Agents:** if you were asked to install this, follow [`AGENTS.md`](AGENTS.md). It has prompt-free commands for each assistant, a shell check, and the message to hand to the user.
+
 ## Install the skill
 
 ```sh
 npx skills add teemukinos/creator-studio-mcp
 ```
+
+This asks which assistants to install to. To skip the questions, name them: `npx -y skills add teemukinos/creator-studio-mcp -g -a claude-code -a codex -y`.
 
 For claude.ai, download `studio.zip` from the [latest release](https://github.com/teemukinos/creator-studio-mcp/releases/latest) and upload it as a skill.
 
@@ -21,7 +25,7 @@ The skill installs without the server, so install the server as well.
 
 ## Install the server
 
-Add one config entry per assistant. Use full paths: GUI apps don't see your shell's `PATH`, so get the path with `which npx`.
+Add one config entry per assistant. Apps started from the Dock (Claude desktop, the Codex app) don't see your shell's `PATH`, so their entries need the full path from `which npx`. Claude Code started from a terminal inherits your `PATH`, so plain `npx` works there.
 
 ```sh
 # Claude Code
@@ -35,7 +39,7 @@ command = "/full/path/to/npx"
 args = ["-y", "creator-studio-mcp@0.7.1"]
 ```
 
-For Claude desktop, open **Settings > Developer > Edit Config** and merge an `mcpServers` entry with the same command and arguments.
+For Claude desktop, open **Settings > Developer > Edit Config** (`~/Library/Application Support/Claude/claude_desktop_config.json`) and add a `creator-studio` entry under `mcpServers` with the same command and arguments. Keep the entries already there.
 
 To run from a clone instead:
 
@@ -47,7 +51,19 @@ npm install --omit=dev
 
 Then point your config at `dist/index.js` in the clone, with the full path to `node` as the command. `dist/` is committed, so no build step is needed.
 
-The full steps, including permissions and how to verify the install, are in [`skills/studio/references/setup.md`](skills/studio/references/setup.md).
+The full steps, including permissions, how to verify the install and a troubleshooting table, are in [`skills/studio/references/setup.md`](skills/studio/references/setup.md).
+
+### Update and uninstall
+
+To update, change the version in each config entry (`creator-studio-mcp@<version>`), run `npx skills add` again for the skill, and restart the assistant. To uninstall:
+
+```sh
+claude mcp remove --scope user creator-studio
+codex mcp remove creator-studio
+npx -y skills remove studio -g -y
+```
+
+For Claude desktop, delete the `creator-studio` entry from its config file. Your job folders (`~/Studio/`) and the learning ledger (`~/.studio/`) stay until you delete them.
 
 ## Tools
 
@@ -115,10 +131,11 @@ Safety defaults: paths must be absolute (or start with `~/`); no tool overwrites
 - macOS with the apps you want to use installed (any subset works)
 - Node.js 22 or later (`node --version`)
 - Blender, the Rive CLI and Godot only for jobs that use them
+- ffmpeg only to render a timeline to MP4 without Final Cut (`brew install ffmpeg`)
 
 ## First run: permissions
 
-The first time a tool talks to each app, macOS asks whether Claude may control it. Click **Allow**. If you clicked Don't Allow, re-enable it in **System Settings › Privacy & Security › Automation** (or run `tccutil reset AppleEvents`). A denied permission shows up as error `-1743`.
+The first time a tool talks to each app, macOS asks whether the app running your assistant (Claude, Codex, your terminal or your editor) may control it. Click **Allow**. If you clicked Don't Allow, re-enable it in **System Settings › Privacy & Security › Automation** (or run `tccutil reset AppleEvents`). A denied permission shows up as error `-1743`.
 
 ## Creator Studio vs one-time-purchase editions
 
@@ -131,17 +148,22 @@ Creator Studio editions install as separate apps, e.g. `Keynote Creator Studio.a
 }
 ```
 
-Variables: `PIXELMATOR_APP`, `KEYNOTE_APP`, `PAGES_APP`, `NUMBERS_APP`, `FINALCUT_APP`, `COMPRESSOR_APP`.
+Variables: `PIXELMATOR_APP`, `KEYNOTE_APP`, `PAGES_APP`, `NUMBERS_APP`, `FINALCUT_APP`, `COMPRESSOR_APP`, `MOTION_APP`, `LOGIC_APP`, `MAINSTAGE_APP`, `BLENDER_APP` and `GODOT_APP` take an `.app` path. `GODOT_BIN` and `RIVE_CLI` take the path of the executable.
 
 ## Things to know
 
 - **Dialogs block automation.** If Pixelmator Pro (or any app) shows an alert, every script to it waits until someone dismisses it. A tool that times out usually means a dialog is open.
 - **Pixelmator Pro is sandboxed.** The scripts coerce file paths in the way that gives the app a sandbox grant, so files outside `~/Pictures` open reliably. `super_resolution` is always ×3; combine it with `resize` to hit a target size. `remove_background` needs a format with transparency (png, webp, heic, tiff) to keep the cut-out.
-- **Final Cut Pro's scripting dictionary is read-only.** Import works through FCPXML; everything else, including **File › Export XML**, Share/export and the AI features, goes through the `ui_*` tools.
+- **Final Cut Pro's scripting dictionary is read-only.** Import works through FCPXML; everything else, including the AI features, goes through the `ui_*` tools and needs the right clip or project selected first.
+- **Final Cut's Share can't run hidden.** It needs a project selected in the browser, and Final Cut ignores selection changes while it is hidden. To get a video file without showing Final Cut, render the same FCPXML headless: `skills/studio/scripts/render_fcpxml.py timeline.fcpxml out.mp4` (needs ffmpeg). It renders cuts, gaps and in/out points, not effects or titles; for those, the user shares from Final Cut by hand.
 - **Final Cut imports need a library.** On current versions an FCPXML import without a target library silently does nothing, so the import tools require `libraryLocation`. An existing `.fcpbundle` is used; a new path creates a library. Importing a project whose media is already in the target library can fail with a duplicate-media error; a fresh library avoids it.
 - **Timelines are frame-accurate.** Clip lengths are rounded down to whole frames of the project frame rate. Media lengths come from Spotlight, falling back to AVFoundation for unindexed files; pass `durationSeconds` per clip to override.
 - **Numbers CSV export** of a file with several tables produces a folder with one CSV per table.
 - **Compressor output paths** should include the extension the chosen setting produces (`.mp4`, `.mov`, `.m4a`, …).
+
+## Troubleshooting
+
+Missing tools, `-1743`, "not allowed assistive access", a locked screen and timeouts from open dialogs each have a row in the [troubleshooting table](skills/studio/references/setup.md#troubleshooting).
 
 ## Security
 
