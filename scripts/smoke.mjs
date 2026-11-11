@@ -11,7 +11,8 @@
 // the Rive CLI, Godot, Final Cut Pro and Compressor, Accessibility and Screen Recording for the app that
 // runs it, and an unlocked screen. It launches Final Cut Pro, which reopens the user's last libraries,
 // imports into two new libraries in the temp folder and closes them again (Final Cut Pro comes to the front
-// for that moment: it has no scripted close). It keeps one shortcut,
+// for that moment: it has no scripted close). It also renders the timeline headless with the skill's
+// scripts/render_fcpxml.py, which needs ffmpeg. It keeps one shortcut,
 // named CSMCP_SMOKE_SHORTCUT (default "creator-studio-mcp smoke test"), which it imports the first time.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -283,6 +284,17 @@ else {
   return /^(closed|none)$/.test(said) ? null : `temp Final Cut libraries: ${said || 'osascript timed out'}; close ${names.join(' and ')} by hand`;
 }
 
+// The skill's headless route from a timeline to a video file (apple-apps.md, Recipes), run on the
+// timeline the full run built. Returns a problem, or null.
+function renderTimeline(t) {
+  const script = join(dirname(fileURLToPath(import.meta.url)), '..', 'skills', 'studio', 'scripts', 'render_fcpxml.py');
+  const out = join(t, 'smoke-render.mp4');
+  const r = spawnSync('python3', [script, join(t, 'smoke.fcpxml'), out], { encoding: 'utf8', input: '', timeout: 300000 });
+  const said = (r.stdout || r.stderr || 'timed out').trim().split('\n');
+  if (r.status !== 0 || !said[0].startsWith('PASS')) return `render_fcpxml.py: ${said.join(' ').slice(0, 100)}`;
+  return existsSync(out) && isMp4(readFileSync(out)) ? null : 'render_fcpxml.py said PASS but wrote no MPEG-4';
+}
+
 // Files the full run starts from, made outside the server.
 function prepareFull(t) {
   writeFileSync(join(t, 'note.txt'), 'start\n');
@@ -479,12 +491,17 @@ async function main() {
   if (!report.ok) { console.log(`no handshake: ${report.error}`); process.exit(1); }
   if (report.error) console.log(`probe: ${report.error}`);
   const problems = [...verify(t, report.calls.slice(0, base.length)), ...verifyFull(t, report.calls.slice(base.length), specs)];
-  if (full) { const left = closeTempLibraries(['SmokeA', 'SmokeB']); if (left) problems.push(left); }
+  if (full) {
+    const left = closeTempLibraries(['SmokeA', 'SmokeB']);
+    if (left) problems.push(left);
+    const render = renderTimeline(t);
+    if (render) problems.push(render);
+  }
   for (const p of problems) console.log(`BAD ${p}`);
   if (problems.length) { console.log(`${problems.length} problem(s): ${problems[0]}`.slice(0, 110)); process.exit(1); }
   const tools = new Set(calls.map((c) => c.name)).size;
   console.log(full
-    ? `${calls.length} calls to ${tools} tools (full), results checked from files`
+    ? `${calls.length} calls to ${tools} tools (full) and a headless render, results checked from files`
     : `${calls.length} calls to ${tools} tools, results checked from files; CSMCP_SMOKE_FULL=1 adds ${FULL_TOOLS.length}`);
 }
 
