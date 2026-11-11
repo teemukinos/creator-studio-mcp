@@ -547,6 +547,7 @@ PY
 }
 
 # 21. Real apps, driven over stdio through the tarball's server; results checked from files in a temp folder.
+# CSMCP_SMOKE_FULL=1 runs every other tool too (see scripts/smoke.mjs for what that needs and changes).
 c21() {
   local_only && return 2
   [ -f scripts/smoke.mjs ] || { REASON="scripts/smoke.mjs missing"; return 1; }
@@ -611,7 +612,8 @@ c23() {
   [ "$rc" -eq 0 ]
 }
 
-# 24. A committed list maps every tool, once, to how it is verified.
+# 24. A committed list maps every tool, once, to how it is verified: check 21, check 21 with CSMCP_SMOKE_FULL=1,
+# a named unit test, or not exercised with a reason.
 c24() {
   local t out rc
   [ -f scripts/smoke.mjs ] || { REASON="scripts/smoke.mjs missing"; return 1; }
@@ -619,7 +621,7 @@ c24() {
   node "$PROBE" - -- node dist/index.js >"$t/tools.json"
   out="$(SMOKE_MJS="$ROOT/scripts/smoke.mjs" TOOLS_JSON="$t/tools.json" node --input-type=module -e '
     import { readFileSync, readdirSync } from "node:fs";
-    const { COVERAGE, SMOKE_TOOLS } = await import(process.env.SMOKE_MJS);
+    const { COVERAGE, SMOKE_TOOLS, FULL_TOOLS = [] } = await import(process.env.SMOKE_MJS);
     const r = JSON.parse(readFileSync(process.env.TOOLS_JSON, "utf8"));
     if (!r.ok) { console.log("no handshake"); process.exit(1); }
     const titles = readdirSync("test").filter((f) => f.endsWith(".test.ts"))
@@ -630,12 +632,14 @@ c24() {
       count[c.tool] = (count[c.tool] || 0) + 1;
       if (c.how === "unit test") { if (!titles.includes(c.detail)) bad.push(c.tool + ": no test titled " + JSON.stringify(c.detail)); }
       else if (c.how === "check 21") { if (!SMOKE_TOOLS.includes(c.tool)) bad.push(c.tool + ": not called by the smoke run"); }
+      else if (c.how === "check 21 full") { if (!FULL_TOOLS.includes(c.tool)) bad.push(c.tool + ": not called by the full smoke run"); }
       else if (c.how === "not exercised") { if (!c.detail || !c.detail.trim()) bad.push(c.tool + ": no reason"); }
       else bad.push(c.tool + ": unknown kind " + c.how);
     }
     for (const n of r.tools) if (count[n] !== 1) bad.push(n + " listed " + (count[n] || 0) + " times");
     for (const n of Object.keys(count)) if (!r.tools.includes(n)) bad.push(n + " is not a tool");
     for (const n of SMOKE_TOOLS) if (!COVERAGE.some((c) => c.tool === n && c.how === "check 21")) bad.push(n + " is smoke-called but not mapped to check 21");
+    for (const n of FULL_TOOLS) if (!COVERAGE.some((c) => c.tool === n && c.how === "check 21 full")) bad.push(n + " is called by the full run but not mapped to check 21 full");
     bad.forEach((b) => console.error(b));
     if (bad.length) { console.log(bad.length + " problem(s): " + bad[0]); process.exit(1); }
     const by = {};

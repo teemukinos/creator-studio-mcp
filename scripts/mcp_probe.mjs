@@ -5,7 +5,8 @@
 //
 // Speaks newline-delimited JSON-RPC: initialize, tools/list, then each call in calls.json
 // ([{"name": "...", "args": {...}, "timeout": ms}]). Prints one JSON object to stdout:
-// { ok, server, tools: [names], calls: [{ name, status: OK|TOOL-ERROR|RPC-ERROR, text }], error, stderr }.
+// { ok, server, tools: [names], calls: [{ name, status: OK|TOOL-ERROR|RPC-ERROR, text, images? }], error, stderr }.
+// images lists image results as { mimeType, data } with base64 data.
 // The server inherits this process's environment. Exits 0 when the handshake worked, whatever the calls returned.
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -79,7 +80,8 @@ try {
     const r = await send('tools/call', { name: c.name, arguments: c.args ?? {} }, c.timeout ?? 180000);
     const text = (r.result?.content ?? []).filter((x) => x.type === 'text').map((x) => x.text).join('\n');
     const status = r.error ? 'RPC-ERROR' : r.result?.isError ? 'TOOL-ERROR' : 'OK';
-    report.calls.push({ name: c.name, status, text: r.error?.message ?? text });
+    const images = (r.result?.content ?? []).filter((x) => x.type === 'image').map((x) => ({ mimeType: x.mimeType, data: x.data }));
+    report.calls.push({ name: c.name, status, text: r.error?.message ?? text, ...(images.length ? { images } : {}) });
   }
   done(0);
 } catch (e) {
