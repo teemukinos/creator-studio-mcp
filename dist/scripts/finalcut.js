@@ -57,13 +57,15 @@ end run`,
  * not indexed. Prints one JSON line per argument.
  */
 export const AV_PROBE_JXA = `ObjC.import('AVFoundation');
+ObjC.import('CoreMedia');
 function run(argv) {
+  // Current macOS doesn't bridge $.AVURLAsset or CMTime's fields: look the class up by name and convert with CMTimeGetSeconds.
+  const AVURLAsset = $.NSClassFromString('AVURLAsset');
   const out = [];
   for (const p of argv) {
     try {
-      const asset = $.AVURLAsset.URLAssetWithURLOptions($.NSURL.fileURLWithPath(p), $());
-      const d = asset.duration;
-      const secs = d.timescale ? d.value / d.timescale : 0;
+      const asset = AVURLAsset.URLAssetWithURLOptions($.NSURL.fileURLWithPath(p), $());
+      const secs = Number($.CMTimeGetSeconds(asset.duration)) || 0;
       const v = asset.tracksWithMediaType($.AVMediaTypeVideo).count;
       const a = asset.tracksWithMediaType($.AVMediaTypeAudio).count;
       out.push(JSON.stringify({ path: p, durationSeconds: secs, hasVideo: v > 0, hasAudio: a > 0 }));

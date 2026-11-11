@@ -75,12 +75,14 @@ export function runOsa(script, args = [], opts = {}) {
 /** Run any command without a shell. */
 export function run(cmd, args, timeoutMs = 60_000) {
     return new Promise((resolve, reject) => {
-        execFile(cmd, args, { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" }, (err, stdout, stderr) => {
+        const child = execFile(cmd, args, { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" }, (err, stdout, stderr) => {
             if (err)
                 reject(new Error(`${cmd} failed: ${(stderr || err.message).trim()}`));
             else
                 resolve({ stdout, stderr });
         });
+        // Close stdin: some tools read input from it when it isn't a terminal and would wait forever (`shortcuts run` does).
+        child.stdin?.end();
     });
 }
 /** Split `a<US>b<US>c<RS>d<US>e<RS>` into rows of fields. */

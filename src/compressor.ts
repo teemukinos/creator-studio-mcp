@@ -1,4 +1,5 @@
-import { closeSync, existsSync, openSync, readSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, extname, join } from "node:path";
 import { resolveAppPath } from "./apps.js";
@@ -163,21 +164,28 @@ export async function listSettings(): Promise<CompressorSetting[]> {
     const { name, description } = localizeSetting(meta, basename(p, extname(p)), strings);
     return { name, path: p, source, outputExtension: meta.outputExtension, description };
   };
-  // Framework bundles link Versions/A, Versions/Current and the top level to the same files.
   const seen = new Set<string>();
-  const unique = (paths: string[]) =>
-    paths.filter((p) => {
-      let real = p;
-      try {
-        real = realpathSync(p);
-      } catch {
-        /* keep as is */
-      }
-      if (seen.has(real)) return false;
-      seen.add(real);
-      return true;
-    });
-  return [...unique(user).map(toSetting("user")), ...unique(builtIn).map(toSetting("built-in"))];
+  return [...uniqueFiles(user, seen).map(toSetting("user")), ...uniqueFiles(builtIn, seen).map(toSetting("built-in"))];
+}
+
+/**
+ * Drop paths that are the same file as one already seen. Framework bundles link Versions/A,
+ * Versions/Current and the top level to the same files, and Compressor ships byte-identical
+ * copies of a setting in more than one folder, which would make its name ambiguous.
+ */
+export function uniqueFiles(paths: string[], seen: Set<string> = new Set()): string[] {
+  return paths.filter((p) => {
+    let key = p;
+    try {
+      key = realpathSync(p);
+      if (statSync(key).isFile()) key = createHash("sha1").update(readFileSync(key)).digest("hex");
+    } catch {
+      /* keep as is */
+    }
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** Match a setting by exact path, exact name, or a unique case-insensitive name fragment. */
@@ -185,7 +193,19 @@ export function pickSetting(settings: CompressorSetting[], query: string): Compr
   if (existsSync(query)) return { name: basename(query, extname(query)), path: query, source: "user" };
   const q = query.toLowerCase();
   const exact = settings.filter((s) => s.name.toLowerCase() === q || basename(s.path, extname(s.path)).toLowerCase() === q);
-  if (exact.length >= 1) return exact[0];
+  // A setting of the user's own wins over built-in ones of the same name.
+  const own = exact.filter((s) => s.source === "user");
+  if (own.length === 1) return own[0];
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) {
+    // Compressor ships different settings under one name (e.g. "H.264", "HD 1080p"): never pick one silently.
+    throw new Error(
+      `"${query}" names ${exact.length} different settings: ${exact
+        .slice(0, 10)
+        .map((s) => `${s.name}${s.description ? `, ${s.description}` : ""} (${s.path})`)
+        .join("; ")}${exact.length > 10 ? "; …" : ""}. Pass the full path of the one you want.`,
+    );
+  }
   const partial = settings.filter((s) => s.name.toLowerCase().includes(q) || basename(s.path, extname(s.path)).toLowerCase().includes(q));
   if (partial.length === 1) return partial[0];
   if (partial.length > 1) {

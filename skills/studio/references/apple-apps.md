@@ -14,8 +14,8 @@ Read `ui.md` first for how to drive these through menus. Prefer the direct tools
 
 - **Final Cut imports need `libraryLocation`**, or Final Cut silently imports nothing. A new `.fcpbundle` path creates the library. Media already in the target library can cause a duplicate-media error; a fresh library avoids it.
 - **Final Cut has no scripted export.** Export goes through File > Share or Send to Compressor, so it is a UI route: save it as a recipe once it works.
-- **Keynote movie export** is fixed at 1080p (`iwork_export` format `mov`).
-- **Compressor**: use `compressor_transcode`. For several outputs, submit them all before waiting, then wait once.
+- **Keynote movie export** is fixed at 1080p height and written as H.264 `.m4v` (`iwork_export` format `mov`; a `.mov` path is renamed).
+- **Compressor**: use `compressor_transcode`. For several outputs, submit them all before waiting, then wait once. Compressor ships different settings under one name (for example "H.264" and "HD 1080p"): the tool refuses such a name, so pass the `path` from `compressor_list_settings`.
 
 ## Multi-unit jobs (variants, image sets, decks)
 

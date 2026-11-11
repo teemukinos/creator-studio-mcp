@@ -17,7 +17,7 @@ interface ExecResult {
 
 function exec(cmd: string, args: string[], opts: { cwd?: string; timeoutMs: number }): Promise<ExecResult> {
   return new Promise((resolve) => {
-    execFile(
+    const child = execFile(
       cmd,
       args,
       { cwd: opts.cwd, timeout: opts.timeoutMs, maxBuffer: 64 * 1024 * 1024, encoding: "utf8", env: { ...process.env } },
@@ -31,6 +31,8 @@ function exec(cmd: string, args: string[], opts: { cwd?: string; timeoutMs: numb
         });
       },
     );
+    // Nothing is ever piped in: a script that reads stdin gets end of file instead of hanging until the timeout.
+    child.stdin?.end();
   });
 }
 

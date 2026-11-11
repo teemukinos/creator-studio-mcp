@@ -103,10 +103,12 @@ export function runOsa(script: string, args: string[] = [], opts: OsaOptions = {
 /** Run any command without a shell. */
 export function run(cmd: string, args: string[], timeoutMs = 60_000): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" }, (err, stdout, stderr) => {
+    const child = execFile(cmd, args, { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" }, (err, stdout, stderr) => {
       if (err) reject(new Error(`${cmd} failed: ${(stderr || err.message).trim()}`));
       else resolve({ stdout, stderr });
     });
+    // Close stdin: some tools read input from it when it isn't a terminal and would wait forever (`shortcuts run` does).
+    child.stdin?.end();
   });
 }
 

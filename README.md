@@ -65,7 +65,7 @@ The full steps, including permissions and how to verify the install, are in [`sk
 | Numbers | `numbers_read_table` | Sheets/tables list and one table's displayed values |
 | | `numbers_write_cells` | Write cells by A1 reference or a block of rows |
 | | `numbers_create_spreadsheet` | New spreadsheet from rows |
-| iWork | `iwork_export` | Keynote → pdf/pptx/mov/images · Pages → pdf/docx/epub/txt · Numbers → pdf/xlsx/csv |
+| iWork | `iwork_export` | Keynote → pdf/pptx/mov (written as .m4v)/images · Pages → pdf/docx/epub/txt · Numbers → pdf/xlsx/csv |
 | Compressor | `compressor_list_settings` | Your custom and built-in transcode settings |
 | | `compressor_transcode` | Submit a job; optionally wait for the output to finish |
 | Final Cut Pro | `finalcut_list_libraries` | Open libraries → events → projects |
@@ -97,12 +97,12 @@ Apple's scripting dictionaries only cover part of each app, and Final Cut Pro, M
 | `ui_click` / `ui_set_value` / `ui_type_text` / `ui_press_key` | Press buttons, fill fields, type, use keyboard shortcuts |
 | `ui_wait_for` | Wait for a long job (generation, analysis, export) to start or finish |
 | `ui_batch` | Run a known sequence of steps with one call, from a list or a recipe file. Pop-ups stay open between steps, and it writes progress to a status file so long jobs outlast the 60 s bridge limit. `requireAbsent` stops a run when an earlier run left a file behind; the status lists optional steps that were skipped |
-| `ui_screenshot` | See the app window, e.g. a canvas or timeline |
+| `ui_screenshot` | Capture the screen, or an app window you have brought forward yourself (hidden apps can't be captured) |
 | `app_shortcut_actions`, `shortcuts_list`, `shortcuts_run` | Use apps' Shortcuts actions and run your shortcuts |
 
 Tested on Creator Studio: Keynote's **Generate Presenter Notes** (generated notes read back), Final Cut Pro's **Enhance Light and Color** on a timeline built and imported by the server, and Motion's full menu and project browser. Final Cut's Generate Captions, Beat Detection, Smart Conform, Magnetic Mask, Auto Mask, Enhance Audio and Export XML are all reachable the same way.
 
-Apps are driven **in the background**: menu commands and buttons are pressed through Accessibility, shortcuts are sent straight to the app's process, files open with `open -g`, and screenshots capture the app's window even when it's covered. Your screen isn't taken over. Pass `front: true` to bring an app forward.
+Apps are driven **hidden**: menu commands and buttons are pressed through Accessibility, shortcuts with a menu item press that item, other keys and typed text are sent straight to the app's process, and files open with `open -g -j`. Your screen isn't taken over. A hidden app can't be screenshotted, so check results through files. Some menu commands stay disabled while an app has never been in front (for example Pixelmator Pro's Export): use the direct tools for those. Pass `front: true` to bring an app forward.
 
 Extra permissions for these tools: **Accessibility** (System Settings › Privacy & Security › Accessibility) for the app that runs the server (Claude, your terminal, Codex or your editor), and **Screen Recording** for `ui_screenshot`.
 

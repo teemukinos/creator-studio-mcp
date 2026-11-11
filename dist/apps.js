@@ -150,7 +150,7 @@ export async function identifyApp(app) {
     }
     if (/^[a-z0-9-]+(\.[a-z0-9-]+){2,}$/i.test(a))
         return { name: a, bundleId: a };
-    for (const dir of [...APP_DIRS, "/System/Applications"]) {
+    for (const dir of [...APP_DIRS, "/System/Applications", "/System/Applications/Utilities", "/System/Library/CoreServices"]) {
         const p = join(dir, `${a}.app`);
         if (existsSync(p))
             return { name: a, path: p, bundleId: await plistValue(p, "CFBundleIdentifier") };

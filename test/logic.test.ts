@@ -179,6 +179,12 @@ test("Compressor args and setting matching", () => {
   assert.equal(pickSetting(settings, "prores").path, "/x/3");
   assert.throws(() => pickSetting(settings, "apple devices"), /matches 2/);
   assert.throws(() => pickSetting(settings, "nope"), /No Compressor setting/);
+  const same = [
+    { name: "H.264", path: "/a/H264.compressorsetting", source: "built-in" as const, description: "movie" },
+    { name: "H.264", path: "/b/H264.compressorsetting", source: "built-in" as const, description: "MXF" },
+  ];
+  assert.throws(() => pickSetting(same, "h.264"), /names 2 different settings: .*\/a\/H264.*\/b\/H264.*full path/);
+  assert.equal(pickSetting([...same, { name: "H.264", path: "/u/mine.compressorsetting", source: "user" as const }], "H.264").path, "/u/mine.compressorsetting");
 });
 
 test("mdls parsing", () => {
@@ -276,4 +282,35 @@ test("lock check reads ioreg's IOConsoleLocked", () => {
   assert.equal(isConsoleLocked('    | "IOConsoleLocked" = No\n'), false);
   assert.equal(isConsoleLocked(""), false);
   assert.match(LOCKED_MESSAGE, /Nothing was done/);
+});
+
+import { rmSync, symlinkSync } from "node:fs";
+import { uniqueFiles } from "../src/compressor.ts";
+test("Compressor: links and byte-identical copies of a setting are listed once", () => {
+  const d = mkdtempSync(join(tmpdir(), "csmcp-settings-"));
+  try {
+    writeFileSync(join(d, "a.compressorsetting"), "<setting>A</setting>");
+    writeFileSync(join(d, "copy.compressorsetting"), "<setting>A</setting>");
+    writeFileSync(join(d, "b.compressorsetting"), "<setting>B</setting>");
+    symlinkSync(join(d, "b.compressorsetting"), join(d, "link.compressorsetting"));
+    const all = ["a", "copy", "b", "link"].map((n) => join(d, `${n}.compressorsetting`));
+    assert.deepEqual(uniqueFiles(all).map((p) => p.slice(d.length + 1)), ["a.compressorsetting", "b.compressorsetting"]);
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+import { exportPath } from "../src/tools/iwork.ts";
+test("iWork export: Keynote movies are written as .m4v", () => {
+  assert.equal(exportPath("/o/talk.mov", "mov"), "/o/talk.m4v");
+  assert.equal(exportPath("/o/talk.MOV", "mov"), "/o/talk.m4v");
+  assert.equal(exportPath("/o/talk", "mov"), "/o/talk.m4v");
+  assert.equal(exportPath("/o/talk.m4v", "mov"), "/o/talk.m4v");
+  assert.equal(exportPath("/o/doc", "pdf"), "/o/doc.pdf");
+});
+
+import { run } from "../src/osascript.ts";
+test("commands get a closed stdin, so tools that read it don't wait forever", async () => {
+  const { stdout } = await run("/bin/cat", [], 5000);
+  assert.equal(stdout, "");
 });

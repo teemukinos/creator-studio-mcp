@@ -1,15 +1,23 @@
 import * as z from "zod/v4";
 import { mkdirSync } from "node:fs";
+import { extname } from "node:path";
 import { RECORD_SEP, splitRecords } from "../osascript.js";
 import { runApp } from "../hidden.js";
 import { absPath, inputFile, outputFile, withExt } from "../paths.js";
 import { IWORK_FORMATS, appForFile, buildExportScript, buildKeynoteCreateScript, buildKeynoteReadScript, buildKeynoteThemesScript, buildNumbersCreateScript, buildNumbersReadScript, buildNumbersWriteScript, buildPagesCreateScript, buildPagesReadScript, buildPagesTemplatesScript, } from "../scripts/iwork.js";
 import { ok } from "./util.js";
+/** The output path for an export: the format's extension, with a Keynote movie's .mov swapped for .m4v. */
+export function exportPath(output, format) {
+    if (format === "mov" && extname(output).toLowerCase() === ".mov")
+        return output.slice(0, -4) + ".m4v";
+    return withExt(output, EXPORT_EXT[format]);
+}
 const cellValue = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 const EXPORT_EXT = {
     pdf: ".pdf",
     pptx: ".pptx",
-    mov: ".mov",
+    // Keynote writes movies only as MPEG-4 .m4v: a .mov path fails with error 6.
+    mov: ".m4v",
     docx: ".docx",
     epub: ".epub",
     txt: ".txt",
@@ -183,7 +191,7 @@ export function registerIWork(server) {
     // ---------------------------------------------------------------- Export
     server.registerTool("iwork_export", {
         title: "Export a Keynote, Pages or Numbers file",
-        description: `Export an iWork document to another format. The app is chosen from the file extension. Keynote: ${Object.keys(IWORK_FORMATS.keynote).join(", ")} (images writes one file per slide into the output folder). Pages: ${Object.keys(IWORK_FORMATS.pages).join(", ")}. Numbers: ${Object.keys(IWORK_FORMATS.numbers).join(", ")} (csv of a multi-table file produces a folder with one CSV per table).`,
+        description: `Export an iWork document to another format. The app is chosen from the file extension. Keynote: ${Object.keys(IWORK_FORMATS.keynote).join(", ")} (images writes one file per slide into the output folder; mov writes an H.264 .m4v at 1080p height). Pages: ${Object.keys(IWORK_FORMATS.pages).join(", ")}. Numbers: ${Object.keys(IWORK_FORMATS.numbers).join(", ")} (csv of a multi-table file produces a folder with one CSV per table).`,
         inputSchema: z.object({
             input: z.string().describe("Path to a .key, .pages or .numbers file"),
             format: z.enum(["pdf", "pptx", "mov", "images", "docx", "epub", "txt", "xlsx", "csv"]),
@@ -201,7 +209,7 @@ export function registerIWork(server) {
             mkdirSync(output, { recursive: true });
         }
         else {
-            output = outputFile(withExt(a.output, EXPORT_EXT[a.format]), { overwrite: a.overwrite, inputs: [input] });
+            output = outputFile(exportPath(a.output, a.format), { overwrite: a.overwrite, inputs: [input] });
         }
         const { script, args } = buildExportScript(app, input, output, a.format, a.imageFormat);
         await runApp(app, script, args, { timeoutMs: 60 * 60 * 1000 });

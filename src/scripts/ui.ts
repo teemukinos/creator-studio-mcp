@@ -95,6 +95,7 @@ function run(argv) {
     if (req.menu && out.length === 0) throw new Error('No menu "' + req.menu + '". Menus: ' + tops.slice(1).join(' | '));
     return { menus: out, truncated: out.length >= (req.limit || 1500) };
   }
+  var DISABLED_HINT = 'is disabled right now. It may need a selection or an open document. A hidden app that has never been in front keeps some document commands disabled (Save, Export): use a direct tool for those.';
   function cmdClickMenu() {
     var p = proc(req.front === true);
     var path = req.path;
@@ -109,7 +110,7 @@ function run(argv) {
       var item = menu.menuItems[idx];
       resolved.push(names[idx]);
       if (i === path.length - 1) {
-        if (!item.enabled()) throw new Error('"' + resolved.join(' > ') + '" is disabled right now. It may need a selection or an open document.');
+        if (!item.enabled()) throw new Error('"' + resolved.join(' > ') + '" ' + DISABLED_HINT);
         item.click();
         return { clicked: resolved };
       }
@@ -128,6 +129,8 @@ function run(argv) {
   function walk(roots, ids, depth, visit, budget) {
     var n = roots.length;
     if (n === 0 || budget.left <= 0) return;
+    // Some apps (Final Cut Pro) answer a few elements a second: stop before the caller's timeout instead of failing.
+    if (budget.until && Date.now() > budget.until) { budget.left = 0; budget.outOfTime = true; return; }
     var roles = bulk(roots, 'role', n), names = bulk(roots, 'name', n), descs = bulk(roots, 'description', n);
     var values = bulk(roots, 'value', n), enabled = bulk(roots, 'enabled', n);
     for (var i = 0; i < n && budget.left > 0; i++) {
@@ -155,7 +158,7 @@ function run(argv) {
   function cmdSnapshot() {
     var p = proc(req.front === true);
     var lines = [];
-    var budget = { left: req.maxNodes || 400, maxDepth: req.depth || 10 };
+    var budget = { left: req.maxNodes || 400, maxDepth: req.depth || 10, until: Date.now() + (req.searchSeconds || 90) * 1000 };
     var root = req.within ? resolveId(p, req.within).uiElements : windowsOf(p);
     var base = req.within || '';
     walk(root, base, 0, function (n) {
@@ -164,7 +167,7 @@ function run(argv) {
       if (!boring) lines.push(new Array(n.depth + 1).join('  ') + '[' + n.id + '] ' + n.role.replace(/^AX/, '') + (label ? ' "' + cut(label, 100) + '"' : '') + (n.value ? ' = ' + cut(n.value, 120) : '') + (n.enabled ? '' : ' (disabled)'));
     }, budget);
     var titles = []; try { titles = p.windows.name(); } catch (e) {}
-    return { windows: titles, elements: lines, truncated: budget.left <= 0 };
+    return { windows: titles, elements: lines, truncated: budget.left <= 0, outOfTime: budget.outOfTime || undefined };
   }
   function matches(n) {
     if (req.role && norm(n.role.replace(/^AX/, '')) !== norm(String(req.role).replace(/^AX/, ''))) return false;
@@ -177,29 +180,55 @@ function run(argv) {
     }
     return false;
   }
+  var searchCut = null;
   function find(p, max) {
     var hits = [];
-    var budget = { left: req.maxNodes || 3000, maxDepth: req.depth || 14 };
+    var budget = { left: req.maxNodes || 3000, maxDepth: req.depth || 14, until: Date.now() + (req.searchSeconds || 90) * 1000 };
     var root = req.within ? resolveId(p, req.within).uiElements : windowsOf(p);
+    var stopped = false;
     walk(root, req.within || '', 0, function (n) {
-      if (matches(n)) { hits.push(n); if (hits.length >= max) return 'stop'; }
+      if (matches(n)) { hits.push(n); if (hits.length >= max) { stopped = true; return 'stop'; } }
     }, budget);
+    searchCut = !stopped && budget.left <= 0 ? (budget.outOfTime ? 'ran out of time' : 'reached ' + (req.maxNodes || 3000) + ' elements') : null;
     return hits;
   }
+  var NARROW = ' Pass within with the id of the part to search (from ui_snapshot) to narrow it.';
   function target(p) {
     if (req.id != null) return { el: resolveId(p, req.id), id: String(req.id) };
     var hits = find(p, 2 + (req.index || 0));
-    if (!hits.length) throw new Error('No element matches ' + JSON.stringify({ role: req.role, text: req.text }) + '. Take a ui_snapshot to see what is on screen.');
+    if (!hits.length) throw new Error('No element matches ' + JSON.stringify({ role: req.role, text: req.text }) + (searchCut ? ': the search ' + searchCut + ' first.' + NARROW : '. Take a ui_snapshot to see what is on screen.'));
     var h = hits[req.index || 0] || hits[0];
     return { el: resolveId(p, h.id), id: h.id, node: h, more: hits.length > 1 };
   }
   function cmdFind() {
     var p = proc(req.front === true);
-    return { matches: find(p, req.max || 20) };
+    var hits = find(p, req.max || 20);
+    return searchCut ? { matches: hits, truncated: true, note: 'The search ' + searchCut + ' before it covered the whole window.' + NARROW } : { matches: hits };
+  }
+  // The list row that holds an element, or null. AXPress on a row or its text field reports
+  // success without selecting anything (Final Cut Pro's library sidebar).
+  function rowOf(p, id) {
+    var parts = String(id).split('.');
+    for (var n = parts.length; n > 1; n--) {
+      var el = resolveId(p, parts.slice(0, n).join('.'));
+      var r = '';
+      try { r = el.role(); } catch (e) {}
+      if (r === 'AXRow') return el;
+      if (r === 'AXOutline' || r === 'AXTable' || r === 'AXList' || r === 'AXBrowser') return null;
+    }
+    return null;
   }
   function cmdClick() {
     var p = proc(req.front === true);
     var t = target(p);
+    var row = rowOf(p, t.id);
+    if (row) {
+      if (req.front === true) { t.el.click(); return { clicked: t.id, element: t.node || null, method: 'click' }; }
+      var selected = false;
+      try { row.attributes.byName('AXSelected').value = true; selected = row.attributes.byName('AXSelected').value() === true; } catch (e) {}
+      return { clicked: t.id, element: t.node || null, method: 'select', selected: selected,
+        note: 'This is a list row, so it was selected through Accessibility. Some apps (the Final Cut Pro sidebar) ignore that selection: if the app does not react, call again with front: true for a real click.' };
+    }
     var how = 'AXPress';
     try { t.el.actions.byName('AXPress').perform(); }
     catch (e) { how = 'click'; t.el.click(); }
@@ -227,15 +256,44 @@ function run(argv) {
     '1': 18, '2': 19, '3': 20, '4': 21, '6': 22, '5': 23, '=': 24, '9': 25, '7': 26, '-': 27, '8': 28, '0': 29, ']': 30, o: 31, u: 32,
     '[': 33, i: 34, p: 35, l: 37, j: 38, "'": 39, k: 40, ';': 41, '\\': 42, ',': 43, '/': 44, n: 45, m: 46, '.': 47, '\u0060': 50 };
   var FLAGS = { command: 0x100000, shift: 0x20000, control: 0x40000, option: 0x80000 };
-  function postKey(pid, code, flags, text) {
+  // text is one UTF-16 code unit. A JS string doesn't bridge to UniChar*, which left every event as key code 0 ("a").
+  function postKey(pid, code, flags, unit) {
     ObjC.import('Cocoa');
     [true, false].forEach(function (down) {
       var ev = $.CGEventCreateKeyboardEvent($(), code, down);
       $.CGEventSetFlags(ev, flags);
-      if (text) $.CGEventKeyboardSetUnicodeString(ev, text.length, text);
+      if (unit !== undefined && unit !== null) {
+        var buf = Ref('unsigned short');
+        buf[0] = unit;
+        $.CGEventKeyboardSetUnicodeString(ev, 1, buf);
+      }
       $.CGEventPostToPid(pid, ev);
       delay(0.01);
     });
+  }
+  // A shortcut posted to a hidden app reaches no menu: it has no key window. Find the menu item
+  // that has this shortcut and press it instead. Searches the menus and one level of submenus.
+  function menuItemForShortcut(p, key, flags) {
+    var want = (flags & FLAGS.shift ? 1 : 0) | (flags & FLAGS.option ? 2 : 0) | (flags & FLAGS.control ? 4 : 0) | (flags & FLAGS.command ? 0 : 8);
+    var k = key.toLowerCase(), found = null;
+    function scan(menuItems, path, depth) {
+      var items, chars, mods, names;
+      try {
+        items = menuItems();
+        chars = menuItems.attributes.byName('AXMenuItemCmdChar').value();
+        mods = menuItems.attributes.byName('AXMenuItemCmdModifiers').value();
+        names = menuItems.name();
+      } catch (e) { return; }
+      for (var i = 0; i < items.length; i++) {
+        if (chars[i] && String(chars[i]).toLowerCase() === k && mods[i] === want) { found = { item: items[i], path: path.concat([names[i]]) }; return; }
+      }
+      if (depth > 0) for (var j = 0; j < items.length && !found; j++) {
+        try { if (items[j].menus.length) scan(items[j].menus[0].menuItems, path.concat([names[j]]), depth - 1); } catch (e) {}
+      }
+    }
+    var bar = p.menuBars[0].menuBarItems, tops = bar.name();
+    for (var t = 1; t < tops.length && !found; t++) scan(bar[t].menus[0].menuItems, [tops[t]], 1);
+    return found;
   }
   function cmdKeys() {
     var front = req.front === true;
@@ -250,10 +308,18 @@ function run(argv) {
     }
     var code = KEYCODES[k.toLowerCase()];
     if (code === undefined) code = CHARCODES[k.toLowerCase()];
-    if (code === undefined) throw new Error('Key "' + k + '" cannot be sent in the background. Pass front: true.');
     var flags = 0;
     mods.forEach(function (m) { flags |= FLAGS[m]; });
     if (k.length === 1 && k !== k.toLowerCase()) flags |= FLAGS.shift;
+    if (flags & (FLAGS.command | FLAGS.control | FLAGS.option)) {
+      var hit = menuItemForShortcut(p, k, flags);
+      if (hit) {
+        if (!hit.item.enabled()) throw new Error('"' + hit.path.join(' > ') + '" (' + mods.concat([k]).join('+') + ') ' + DISABLED_HINT);
+        hit.item.actions.byName('AXPress').perform();
+        return { pressed: mods.concat([k]).join('+'), mode: 'background', menu: hit.path.join(' > ') };
+      }
+    }
+    if (code === undefined) throw new Error('Key "' + k + '" cannot be sent in the background. Pass front: true.');
     postKey(p.unixId(), code, flags, null);
     return { pressed: mods.concat([k]).join('+'), mode: 'background' };
   }
@@ -262,11 +328,19 @@ function run(argv) {
     var p = proc(front);
     if (front) { se.keystroke(req.text); return { typed: req.text.length, mode: 'foreground' }; }
     var pid = p.unixId();
-    for (var i = 0; i < req.text.length; i++) postKey(pid, 0, 0, req.text[i]);
+    // One event per UTF-16 code unit: a surrogate pair split over two events still arrives as one character.
+    for (var i = 0; i < req.text.length; i++) {
+      var ch = req.text[i];
+      if (ch === '\n' || ch === '\r') postKey(pid, KEYCODES['return'], 0, null);
+      else if (ch === '\t') postKey(pid, KEYCODES.tab, 0, null);
+      else postKey(pid, 0, 0, req.text.charCodeAt(i));
+    }
     return { typed: req.text.length, mode: 'background' };
   }
   function cmdWindowId() {
     var p = proc(false);
+    // macOS draws no image for a hidden app's windows, and showing one would put it on screen.
+    if (!p.visible()) throw new Error(p.name() + ' is hidden, so its window can\'t be captured. Check the result through output files or read-back tools (ui_snapshot, ui_find) instead.');
     var pid = p.unixId();
     ObjC.import('Cocoa');
     var list = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionAll, 0))) || [];

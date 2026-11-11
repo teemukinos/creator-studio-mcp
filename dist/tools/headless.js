@@ -8,7 +8,7 @@ import { absPath, inputDir, inputFile } from "../paths.js";
 import { ok } from "./util.js";
 function exec(cmd, args, opts) {
     return new Promise((resolve) => {
-        execFile(cmd, args, { cwd: opts.cwd, timeout: opts.timeoutMs, maxBuffer: 64 * 1024 * 1024, encoding: "utf8", env: { ...process.env } }, (err, stdout, stderr) => {
+        const child = execFile(cmd, args, { cwd: opts.cwd, timeout: opts.timeoutMs, maxBuffer: 64 * 1024 * 1024, encoding: "utf8", env: { ...process.env } }, (err, stdout, stderr) => {
             const e = err;
             resolve({
                 code: e ? (typeof e.code === "number" ? e.code : 1) : 0,
@@ -17,6 +17,8 @@ function exec(cmd, args, opts) {
                 timedOut: !!e?.killed,
             });
         });
+        // Nothing is ever piped in: a script that reads stdin gets end of file instead of hanging until the timeout.
+        child.stdin?.end();
     });
 }
 /** Keep tool results readable: the end of long logs is what matters. */

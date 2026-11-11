@@ -106,7 +106,7 @@ export function registerUi(server) {
         }),
         annotations: { readOnlyHint: true, openWorldHint: false },
     }, async (a) => {
-        const r = await ui(a.app, "snapshot", { within: a.within, depth: a.depth, maxNodes: a.maxNodes, front: false }, 180_000);
+        const r = await ui(a.app, "snapshot", { within: a.within, depth: a.depth, maxNodes: a.maxNodes, front: false, searchSeconds: 150 }, 180_000);
         if (r?.truncated)
             r.hint = "Cut off at the limits. Pass within with the id of the part you need, or raise depth or maxNodes for this call.";
         return ok(r);
@@ -116,10 +116,10 @@ export function registerUi(server) {
         description: "Search an app's windows for elements by text and/or role, returning their ids, roles, labels and values.",
         inputSchema: z.object({ app: appParam, ...findParams, max: z.number().int().min(1).max(100).default(20) }),
         annotations: { readOnlyHint: true, openWorldHint: false },
-    }, async (a) => ok(await ui(a.app, "find", { ...a, front: false }, 180_000)));
+    }, async (a) => ok(await ui(a.app, "find", { ...a, front: false, searchSeconds: 150 }, 180_000)));
     server.registerTool("ui_click", {
         title: "Click a button or control",
-        description: "Press a UI element: by id from ui_snapshot/ui_find, or by text and role (e.g. text \"Generate\", role \"Button\"). Use for buttons, checkboxes, tabs, list rows and pop-up buttons in dialogs and panels.",
+        description: "Press a UI element: by id from ui_snapshot/ui_find, or by text and role (e.g. text \"Generate\", role \"Button\"). Use for buttons, checkboxes, tabs, list rows and pop-up buttons in dialogs and panels. A list row is selected through Accessibility; some apps ignore that, so if nothing changes, call again with front: true for a real click.",
         inputSchema: z.object({ app: appParam, id: z.string().optional(), ...findParams, front: frontParam }),
         annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     }, async (a) => {
@@ -139,7 +139,7 @@ export function registerUi(server) {
     });
     server.registerTool("ui_press_key", {
         title: "Press a key or shortcut",
-        description: "Send a keyboard shortcut to an app (posted to the app's process, so it works in the background; pass front: true if an app ignores it), e.g. key \"e\" with [\"command\"], key \"b\" for the Blade tool, or named keys: return, enter, tab, space, delete, escape, left, right, up, down, home, end, pageup, pagedown, f1–f12.",
+        description: "Send a keyboard shortcut to an app in the background: a shortcut with command, control or option that belongs to a menu item presses that item (a hidden app ignores posted shortcuts); other keys are posted to the app's process. Pass front: true if an app ignores it. E.g. key \"e\" with [\"command\"], key \"b\" for the Blade tool, or named keys: return, enter, tab, space, delete, escape, left, right, up, down, home, end, pageup, pagedown, f1–f12.",
         inputSchema: z.object({
             app: appParam,
             key: z.string().min(1),
@@ -230,7 +230,7 @@ export function registerUi(server) {
     });
     server.registerTool("ui_screenshot", {
         title: "Screenshot an app window",
-        description: "Capture the app's main window (or the whole screen) as an image, to check results visually: a timeline, a canvas, a render. Works while the app is in the background, behind other windows. Needs Screen Recording permission for the app running this server.",
+        description: "Capture an app's main window (or, without app, the whole screen) as an image. Works while the app is behind other windows, but not while it's hidden, and the apps these tools drive stay hidden: for them, check results through output files or read-back tools instead. Needs Screen Recording permission for the app running this server.",
         inputSchema: z.object({
             app: appParam.optional(),
             maxSize: z.number().int().min(400).max(2560).default(1600).describe("Longest side in pixels"),
