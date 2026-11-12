@@ -20,6 +20,7 @@ Don't stop before 1 to 3 are true. Don't claim 4 until someone has seen the resu
 
 - Every command below runs without prompts. Never run the plain `npx skills add <repo>` without flags: it waits for input.
 - Don't overwrite config you didn't write. The commands below add one entry and leave the rest alone.
+- If your sandbox can't write the config or skill folders (Codex's default sandbox keeps `~/.codex` read-only), ask to run the commands from steps 3 and 4 with approval or outside the sandbox. If you can't, give the user those commands, filled in, to paste into a terminal, then continue from step 5 once they have. Don't switch to a clone or write your own install script to get around the sandbox.
 - Ask the user before you install Node.js, Homebrew or ffmpeg.
 - The version is `0.7.1`, the version in `package.json`. Use the same version in every command.
 
