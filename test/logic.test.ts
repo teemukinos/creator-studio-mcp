@@ -314,3 +314,34 @@ test("commands get a closed stdin, so tools that read it don't wait forever", as
   const { stdout } = await run("/bin/cat", [], 5000);
   assert.equal(stdout, "");
 });
+
+import { appFromCommand, automationState, permissionProblems, PERMISSIONS_JXA } from "../src/permissions.ts";
+test("automation results map to states without guessing", () => {
+  assert.equal(automationState(0), "allowed");
+  assert.equal(automationState(-1743), "denied");
+  assert.equal(automationState(-1744), "not asked yet");
+  assert.equal(automationState(-600), "unknown: app not running");
+  assert.equal(automationState(-50), "unknown: error -50");
+});
+test("the host app is the outermost app bundle in a process path", () => {
+  assert.equal(appFromCommand("/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Plugin).app/Contents/MacOS/Code Helper (Plugin)"), "Visual Studio Code");
+  assert.equal(appFromCommand("/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"), "Terminal");
+  assert.equal(appFromCommand("/bin/zsh"), undefined);
+  assert.equal(appFromCommand("-zsh"), undefined);
+});
+test("permission problems name the host and the fix, one line each", () => {
+  const none = permissionProblems({ host: "Terminal", accessibility: true, screenRecording: true, screenLocked: false, automation: { Keynote: "allowed", "System Events": "not asked yet" } });
+  assert.deepEqual(none, []);
+  const all = permissionProblems({ accessibility: false, screenRecording: false, screenLocked: true, automation: { Keynote: "denied", Pages: "unknown: app not running" } });
+  assert.equal(all.length, 4);
+  assert.match(all[0], /screen is locked/);
+  assert.match(all[1], /Accessibility is off for the app running your assistant/);
+  assert.match(all[2], /Screen Recording .* ui_screenshot/);
+  assert.match(all[3], /Automation of Keynote is denied/);
+  assert.match(permissionProblems({ host: "Codex", accessibility: false, screenRecording: true, screenLocked: false, automation: {} })[0], /for Codex: .* restart Codex\./);
+});
+test("the permission probe never asks for consent", () => {
+  assert.match(PERMISSIONS_JXA, /AXIsProcessTrusted\(\)/);
+  assert.doesNotMatch(PERMISSIONS_JXA, /AXIsProcessTrustedWithOptions|CGRequestScreenCaptureAccess/);
+  assert.match(PERMISSIONS_JXA, /AEDeterminePermissionToAutomateTarget\(d\.aeDesc, 0x2a2a2a2a, 0x2a2a2a2a, false\)/);
+});

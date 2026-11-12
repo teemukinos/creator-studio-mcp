@@ -12,7 +12,7 @@ Two jobs bring an agent here. Pick yours:
 1. `claude mcp list` or `codex mcp list` shows `creator-studio` as connected or enabled, for each assistant you set up. For Claude desktop, the config file has the entry and parses as JSON.
 2. The `studio` skill is installed for the same assistants.
 3. You gave the user the hand-off message in step 6.
-4. After the user restarts the assistant, `creator_studio_status` lists the installed apps. You can't check this in the session that did the install: the user checks it, or the next session does.
+4. After the user restarts the assistant, `creator_studio_status` lists the installed apps and `permissions.problems` is empty. You can't check this in the session that did the install: the user checks it, or the next session does.
 
 Don't stop before 1 to 3 are true. Don't claim 4 until someone has seen the result.
 
@@ -110,7 +110,7 @@ Only the user can do these steps. Send them this, with the app names filled in (
 >
 > The first time a tool uses an app, macOS asks whether <host app> may control it: click **Allow**. Screen Recording is needed only for screenshots.
 >
-> Then ask me to run `creator_studio_status` to confirm.
+> Then ask me to run `creator_studio_status`: it lists the apps it found and any permission that is still missing, with where to turn it on.
 
 ## Update
 

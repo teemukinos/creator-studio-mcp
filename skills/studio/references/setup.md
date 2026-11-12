@@ -69,7 +69,7 @@ Open each app by hand once. First-run welcome and subscription screens block aut
 
 ## Verify
 
-From a shell, `claude mcp list` should show `creator-studio: ... ✔ Connected` and `codex mcp list` should show it `enabled`. Then restart the assistant and call `creator_studio_status`. It lists each app it found. Blender, the Rive CLI and Godot are needed only for jobs that use them, and ffmpeg only for `scripts/render_fcpxml.py`.
+From a shell, `claude mcp list` should show `creator-studio: ... ✔ Connected` and `codex mcp list` should show it `enabled`. Then restart the assistant and call `creator_studio_status`. It lists each app it found and, under `permissions`, whether Accessibility, Screen Recording and Automation are granted to the app running the assistant. `permissions.problems` says how to fix each missing one; it is empty when everything is set. Blender, the Rive CLI and Godot are needed only for jobs that use them, and ffmpeg only for `scripts/render_fcpxml.py`.
 
 ## Troubleshooting
 
@@ -78,6 +78,7 @@ From a shell, `claude mcp list` should show `creator-studio: ... ✔ Connected` 
 | The `creator-studio` tools don't appear | The assistant hasn't restarted, or the entry is wrong | Restart the assistant. Run `claude mcp list` or `codex mcp list` and fix the entry it reports as failed |
 | `env: node: No such file or directory` | A Dock app can't find Node | Add the `env` `PATH` fix from "Install the server" |
 | `npm error 404` for `creator-studio-mcp` | The version isn't on the npm registry | Check the version in the entry, or install from a clone |
+| `creator_studio_status` lists `permissions.problems` | A permission the tools need is missing for the host app | Each line names the setting and where to turn it on. Restart the host app after changing Accessibility or Screen Recording, then run `creator_studio_status` again |
 | `creator_studio_status` shows an app as not installed | It isn't in `/Applications` or `~/Applications` | Pin it with an `env` entry such as `"FINALCUT_APP": "/path/to/Final Cut Pro.app"` (variables: `PIXELMATOR_APP`, `KEYNOTE_APP`, `PAGES_APP`, `NUMBERS_APP`, `FINALCUT_APP`, `COMPRESSOR_APP`, `MOTION_APP`, `LOGIC_APP`, `MAINSTAGE_APP`, `BLENDER_APP`, `GODOT_APP`, plus `GODOT_BIN` and `RIVE_CLI` for executables) |
 | Error `-1743` | Automation was denied for that app | System Settings > Privacy & Security > Automation: turn the app on for the host app. Or run `tccutil reset AppleEvents` and click Allow at the next prompt |
 | "not allowed assistive access" | Accessibility is off for the host app | System Settings > Privacy & Security > Accessibility: turn on the app that runs the assistant |

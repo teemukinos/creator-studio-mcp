@@ -69,7 +69,7 @@ For Claude desktop, delete the `creator-studio` entry from its config file. Your
 
 | App | Tool | What it does |
 |---|---|---|
-| All | `creator_studio_status` | Installed copies of each app, which one is targeted, whether it's running |
+| All | `creator_studio_status` | Installed copies of each app, which one is targeted, whether it's running; the macOS permissions the tools need, with a fix for each missing one |
 | Pixelmator Pro | `pixelmator_process_image` | ML ops (remove background, super resolution, enhance, denoise, deband), auto adjustments, color adjustments, crop, resize, export to png/jpeg/heic/webp/avif/tiff/psd/pdf/gif/pxd |
 | | `pixelmator_batch_process` | Same pipeline over a folder or list of files; one failure doesn't stop the batch |
 | | `pixelmator_image_info` | Size, resolution, bit depth, color profile, layers and text-layer contents |
