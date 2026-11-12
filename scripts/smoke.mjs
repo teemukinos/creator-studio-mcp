@@ -417,7 +417,12 @@ function verify(t, calls) {
     return readFileSync(p, 'utf8');
   };
   const checks = [
-    want(0, 'creator_studio_status', () => null),
+    want(0, 'creator_studio_status', (c, j) => {
+      const p = j?.permissions;
+      if (!p || p.error) return `no permissions: ${p?.error ?? 'missing'}`;
+      if (typeof p.accessibility !== 'boolean' || typeof p.screenRecording !== 'boolean' || !Array.isArray(p.problems)) return 'permissions incomplete';
+      return Object.keys(p.automation ?? {}).includes('System Events') ? null : 'no System Events automation entry';
+    }),
     want(1, 'keynote_list_themes', (c, j) => (listLength(j) > 0 ? null : 'empty')),
     want(2, 'pages_list_templates', (c, j) => (listLength(j) > 0 ? null : 'empty')),
     want(3, 'numbers_create_spreadsheet', () => (existsSync(join(t, 'table.numbers')) ? null : 'no table.numbers')),

@@ -296,15 +296,24 @@ c12() {
   REASON="ledger defaults to ~/.studio/learning"
 }
 
-# 13. setup.md names the same version as package.json.
+# 13. Every install command (setup.md, AGENTS.md, README.md), AGENTS.md's stated version and the server's own
+# version match package.json. Placeholders such as creator-studio-mcp@<version> are skipped.
 c13() {
-  local f="$SKILL/references/setup.md" v vs
-  [ -f "$f" ] || { REASON="setup.md missing"; return 1; }
+  local v f vs bad="" n=0
   v="$(pkg_field version)"
-  vs="$(grep -oE 'creator-studio-mcp@[^ "]+' "$f" | sed 's/.*@//' | sort -u)"
-  [ -n "$vs" ] || { REASON="no creator-studio-mcp@<version> in setup.md"; return 1; }
-  [ "$vs" = "$v" ] || { REASON="setup.md has $(echo "$vs" | xargs), package.json has $v"; return 1; }
-  REASON="$v"
+  for f in "$SKILL/references/setup.md" AGENTS.md README.md; do
+    [ -f "$f" ] || { REASON="$(basename "$f") missing"; return 1; }
+    vs="$(grep -oE 'creator-studio-mcp@[^ "`)]+' "$f" | sed 's/.*@//' | grep -v '^<' | sort -u)"
+    [ -n "$vs" ] || { REASON="no creator-studio-mcp@<version> in $(basename "$f")"; return 1; }
+    [ "$vs" = "$v" ] || bad="$bad $(basename "$f"):$(echo "$vs" | xargs | tr ' ' ',')"
+    n=$((n + 1))
+  done
+  vs="$(grep -oE 'The version is `[^`]+`' AGENTS.md | sed 's/.*`\(.*\)`/\1/' | sort -u)"
+  [ "$vs" = "$v" ] || bad="$bad AGENTS.md-stated:${vs:-none}"
+  vs="$(grep -oE 'name: "creator-studio", version: "[^"]+"' src/index.ts | sed 's/.*version: "\(.*\)"/\1/')"
+  [ "$vs" = "$v" ] || bad="$bad src/index.ts:${vs:-none}"
+  [ -z "$bad" ] || { REASON="package.json has $v;$bad"; return 1; }
+  REASON="$v in $n install guides, AGENTS.md and the server"
 }
 
 # 14. README content.
