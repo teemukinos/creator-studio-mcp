@@ -18,6 +18,19 @@ Studio gets better through field notes. The contributions that help most are **r
 
 No personal job content: no song, client or file names, no lyrics, no copy, no home-directory paths, no transcripts. Replace specifics with a description of what was tested. A lesson belongs here only if it would help a different job.
 
+## Working inside a clone
+
+Assistants start MCP servers in the project folder. Inside a clone of this repository, `npx -y creator-studio-mcp@<version>` finds this repository's own `package.json`, which has the same name, and fails with `creator-studio-mcp: command not found` (`claude mcp list` shows the server as failed). Outside the clone the same entry works.
+
+To use the server while you work in the clone, run it from the clone instead. For Claude Code, add an entry that applies to this folder only; it takes precedence over your user-wide entry here and leaves it in place everywhere else:
+
+```sh
+npm ci && npm run build
+claude mcp add --scope local creator-studio -- "$(command -v node)" "$PWD/dist/index.js"
+```
+
+Run `npm run build` again after you change `src/`, then restart the assistant.
+
 ## How changes are accepted
 
 The maintainer curates by pull request review. Entries may be reworded, merged with others, or declined if they can't be reproduced.
