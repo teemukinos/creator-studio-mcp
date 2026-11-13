@@ -13,6 +13,8 @@ Where the container is: CRAFT_URL, else ~/.studio/craft/url, else http://127.0.0
 Token: CRAFT_TOKEN, else the file CRAFT_TOKEN_FILE, else ~/.studio/craft/token.
 Prints at most 20 lines: PASS/FAIL, counts, bytes.
 """
+import base64
+import http.client
 import json
 import os
 import sys
@@ -43,6 +45,58 @@ def req(method, path, data=None, raw=False, timeout=600):
     with urllib.request.urlopen(r, timeout=timeout) as resp:
         body = resp.read()
     return body if raw else (json.loads(body) if body else None)
+
+
+def _connect(u):
+    """An http.client connection to the URL's host, through the environment's proxy if any."""
+    proxy = None if urllib.request.proxy_bypass(u.hostname) else urllib.request.getproxies().get(u.scheme)
+    https = u.scheme == "https"
+    if not proxy:
+        cls = http.client.HTTPSConnection if https else http.client.HTTPConnection
+        return cls(u.hostname, u.port, timeout=600), u.path, {}
+    p = urllib.parse.urlsplit(proxy)
+    auth = {}
+    if p.username:
+        cred = f"{urllib.parse.unquote(p.username)}:{urllib.parse.unquote(p.password or '')}"
+        auth["Proxy-Authorization"] = "Basic " + base64.b64encode(cred.encode()).decode()
+    if https:  # CONNECT tunnel through a plain-HTTP proxy, then TLS to the host
+        conn = http.client.HTTPSConnection(p.hostname, p.port, timeout=600)
+        conn.set_tunnel(u.hostname, u.port or 443, headers=auth)
+        return conn, u.path, {}
+    return http.client.HTTPConnection(p.hostname, p.port, timeout=600), urllib.parse.urlunsplit(u), auth
+
+
+def download(path, expected, tries=3):
+    """GET one file on a keep-alive connection, check its size, retry a short read.
+
+    urllib always sends "Connection: close". Behind some HTTPS proxies (Claude Code's sandbox
+    is one) that loses the end of a large response, so downloads use http.client directly.
+    """
+    u = urllib.parse.urlsplit(URL + path)
+    last = "no attempt"
+    for _ in range(tries):
+        conn, target, extra = _connect(u)
+        try:
+            conn.request("GET", target, headers={"Authorization": f"Bearer {TOKEN}",
+                                                 "Connection": "keep-alive", **extra})
+            resp = conn.getresponse()
+            if resp.status != 200:
+                raise urllib.error.HTTPError(URL + path, resp.status, resp.reason, resp.headers, None)
+            chunks = []
+            while True:
+                b = resp.read(1 << 20)
+                if not b:
+                    break
+                chunks.append(b)
+            data = b"".join(chunks)
+            if len(data) == expected:
+                return data
+            last = f"short read, {len(data)} of {expected} bytes"
+        except (http.client.HTTPException, ConnectionError, TimeoutError) as e:
+            last = f"{type(e).__name__}: {e}"
+        finally:
+            conn.close()
+    raise urllib.error.URLError(f"download {path} failed {tries} times: {last}")
 
 
 def q(p):
@@ -97,7 +151,7 @@ def pull(remote, local, overwrite=False):
             skipped += 1
             continue
         os.makedirs(os.path.dirname(dst) or ".", exist_ok=True)
-        data = req("GET", f"/files/{q(item['path'])}", raw=True)
+        data = download(f"/files/{q(item['path'])}", item["bytes"])
         with open(dst + ".part", "wb") as fh:
             fh.write(data)
         os.replace(dst + ".part", dst)

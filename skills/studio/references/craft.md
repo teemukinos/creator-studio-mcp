@@ -17,6 +17,8 @@ The storytold Craft editors (PhotoCraft, VectorCraft, EffectCraft, DesignCraft, 
 - The `ui_*`, screenshot, pointer and click tools in the Craft tool lists drive a desktop app (`--bridge`, per FilmCraft's `docs/agents.md`); the container has none. Use the render and export tools.
 - Checks are files, pulled to the Mac: `ffprobe` for video, `sips` or a viewed PNG for images, PDF page count. Never `ui_*` tools: no app window exists.
 - Video delivery codec is H.264 (FilmCraft also ProRes 422 HQ, DNxHR, PNG sequence, GIF). No H.265 from FilmCraft on a GPU-less box.
+- Fonts differ per Craft app: DesignCraft 0.20.1 bundles Source Serif 4 and Source Sans 3; EffectCraft 0.24.1 has DejaVu, Inter, Noto Serif and JetBrains Mono. When a title appears in deliverables from both, list each app's fonts at A3 and pick a family both have.
+- A host that suspends when idle wakes slowly. Run the up-check before starting an assistant session that connects to the `craft-<app>` servers: started cold, five servers can take longer than the client's 30 s connect timeout (on 2026-11-13, 2 of 5 timed out once, then reconnected).
 
 ## Recipes
 
@@ -27,6 +29,9 @@ The storytold Craft editors (PhotoCraft, VectorCraft, EffectCraft, DesignCraft, 
 - 2026-11-11, DesignCraft 0.20.0: PDF of every page, `execute {"command": "file.exportPdf", "params": {"path": "/work/<job>/out/x.pdf"}}` (`standard`: x4, x1a or a2b for print). Page PNG: `export_png {"page": 0, "path": "….png", "scale": 2}` (Letter page: 1224x1584). CLI form, tried with the built-in sample: `designcraft-cli run --sample --all-pages out/ --export x.pdf` (4 pages in 0.6 s).
 - 2026-11-11, EffectCraft 0.24.0: render a comp, one call. `command_batch {"steps": [{"id": "renderQueue.add", "params": {"comp": "<name>", "format": "h264", "output": "/work/<job>/video/x.mp4", "timeSpan": "custom", "start": 0, "end": 3}}, {"id": "renderQueue.render", "params": {"wait": true}}]}`. 1080p at about 9 render fps on 2 vCPU. CLI form, tried with the demo: `effectcraft-cli render --demo --out x.mp4 --progress` (300 frames in 33 s).
 - 2026-11-11, FilmCraft 0.20.0: export the active sequence: `command_run {"id": "file.exportMedia", "params": {"path": "/work/<job>/out/x.mp4", "range": "entire", "wait": true}}` with a progress token. For a cut: `"range": "custom", "startSeconds", "endSeconds"`. 1080p H.264 at about 6 render fps on 2 vCPU (27 s demo: 107 s). The result's `seconds` is render time, not clip length.
+- 2026-11-13, PhotoCraft 0.23.1: a warm night grade on an 8256 px photo in one `command_batch`: `image.imageSize` to 1600 px first, then curves (deeper blacks), color balance (warm mids), photo filter (warming 85, 20 %), vibrance 20 / saturation 5, smart sharpen 60. Resizing first keeps the batch fast.
+- 2026-11-13, DesignCraft 0.20.1: styled text in one batch: `frame.create` the text frame, then `text.select {"story", "anchor": 0, "focus": <length in bytes>}`, then `type.char`. After `frame.create` there is only a caret, so `type.char` without a selection styles nothing, silently.
+- 2026-11-13, EffectCraft 0.24.1: a 3 s 1080p title fade: `comp.new`, `layer.newSolid`, `file.import` with `addToComp`, `layer.newText`, `set_property` for scale and opacity, `add_keyframe` opacity 0 to 100 with easy ease out, then `renderQueue.add` (h264) and `renderQueue.render` with `wait: true`. 90 frames in 6.4 s on a remote 2 vCPU host.
 
 ## Dead ends
 
@@ -36,3 +41,4 @@ The storytold Craft editors (PhotoCraft, VectorCraft, EffectCraft, DesignCraft, 
 - 2026-11-12, a remote host: `/healthz` returned 404 `{}` from the platform, not from the gateway. Use `/health`.
 - 2026-11-12, PhotoCraft 0.22.0 on a host with no cgroup filesystem mounted: `doc_open` of any large photo failed with "0.0 GB is free". Fixed in the gateway: each app now gets its own read-only cgroup view (`/status` `startup.cgroup` says "own read-only view per app"). After a Craft update, run the repository's `craft/tests/host_check.py` against each host.
 - 2026-11-11, FilmCraft 0.20.0: `filmcraft-cli mcp --automation-read-root …` exits 2: FilmCraft has no root flags. The gateway runs it without them.
+- 2026-11-13, `craft_sync.py`: `pull` failed with `http.client.IncompleteRead` on files over about 250 KB inside Claude Code's sandbox, whose proxy cuts a `Connection: close` response short. Fixed in `craft_sync.py`: downloads use a keep-alive connection, check the size against the listing and retry.
