@@ -1,0 +1,7 @@
+#!/bin/sh
+# Container health: every Craft CLI answers --version and the gateway answers /health.
+set -e
+for app in photocraft vectorcraft effectcraft designcraft filmcraft; do
+  "$app-cli" --version >/dev/null
+done
+python3 -c "import urllib.request,os,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:%s/health' % (os.environ.get('PORT') or os.environ.get('CRAFT_MCP_PORT') or '8080'), timeout=5).status == 200 else 1)"

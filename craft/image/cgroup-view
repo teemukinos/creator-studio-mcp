@@ -1,0 +1,18 @@
+#!/bin/sh
+# Run a Craft app with an honest, read-only view of its own memory cgroup.
+#
+# Some hosts put the app in a cgroup (/proc/self/cgroup names one) but mount
+# no cgroup filesystem. PhotoCraft then cannot read its memory limit and, by design, fails closed
+# with "0.0 GB is free". The gateway starts each app as
+#
+#   unshare --user --map-user=<uid> --map-group=<gid> --mount --cgroup --keep-caps -- cgroup-view CMD...
+#
+# so this script runs in fresh user, mount and cgroup namespaces, with capabilities that count
+# only inside them. It mounts the cgroup2 filesystem read-only at /sys/fs/cgroup (the cgroup
+# namespace roots it at the app's own cgroup), then drops every capability for good and runs the
+# app as the same unprivileged user. The app reads the real limit by its own rules; nothing in
+# the app is changed or faked.
+set -eu
+mount -t cgroup2 -o ro,nosuid,nodev,noexec cgroup2 /sys/fs/cgroup
+unset PWD OLDPWD  # sh adds these; the apps get the gateway's allowlisted environment only
+exec setpriv --inh-caps=-all --ambient-caps=-all --bounding-set=-all --no-new-privs -- "$@"

@@ -18,7 +18,7 @@ export npm_config_update_notifier=false npm_config_fund=false npm_config_audit=f
 export DISABLE_TELEMETRY=1 DO_NOT_TRACK=1
 
 SKILL=skills/studio
-REFERENCES="apple-apps blender godot handoffs logic remix rive ui setup"
+REFERENCES="apple-apps blender craft godot handoffs logic remix rive ui setup"
 SKIP=","
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -211,10 +211,10 @@ c8() {
   # The public repository slug is required by the install instructions. Only that exact slug is exempt.
   local slug='teemukinos/creator-studio-mcp'
   local t hits
-  for t in skills README.md CONTRIBUTING.md src test; do
+  for t in skills craft README.md CONTRIBUTING.md src test; do
     [ -e "$t" ] || { REASON="$t missing"; return 1; }
   done
-  hits="$(grep -riE "$pat" skills README.md CONTRIBUTING.md src test | sed "s#$slug##g" | grep -iE "$pat")"
+  hits="$(grep -riE "$pat" skills craft README.md CONTRIBUTING.md src test | sed "s#$slug##g" | grep -iE "$pat")"
   if [ -n "$hits" ]; then
     echo "$hits"
     REASON="$(echo "$hits" | cut -d: -f1 | sort -u | wc -l | tr -d ' ') file(s) with personal data"

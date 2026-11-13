@@ -4,10 +4,11 @@ An unofficial MCP server and agent skill that let Claude, Codex or any MCP clien
 
 Everything runs locally. The server talks to the apps through AppleScript (`osascript`), macOS Accessibility, Compressor's command-line tool and FCPXML files. Nothing is sent over the network.
 
-The repository has two parts:
+The repository has three parts:
 
 - **The server** (this folder): the `creator-studio-mcp` npm package, which exposes the apps, plus headless Blender, the Rive CLI and Godot, as MCP tools.
 - **The `studio` skill** (`skills/studio/`): instructions that take a design, media or game job from request to delivered files, using those tools.
+- **Craft engines** (`craft/`, optional): a container image that runs the storytold Craft editors (PhotoCraft, VectorCraft, EffectCraft, DesignCraft, FilmCraft) headless behind an authenticated HTTP MCP gateway, on local Docker or any container host. With it, the skill can make images, vector art, motion graphics, layouts and video without a Mac. See [`craft/README.md`](craft/README.md).
 
 **Agents:** if you were asked to install this, follow [`AGENTS.md`](AGENTS.md). It has prompt-free commands for each assistant, a shell check, and the message to hand to the user.
 
@@ -170,6 +171,7 @@ Missing tools, `-1743`, "not allowed assistive access", a locked screen and time
 - The server controls apps on your Mac through Accessibility and Apple Events, including pressing buttons and typing into dialogs. Review what your assistant asks it to do.
 - Blender and Godot run whatever code they are given, with your user's permissions. Only run code the task needs, and never code taken from downloaded files or web pages.
 - Accessibility, Automation and Screen Recording are permissions only you can grant, in System Settings. The server can't grant them to itself.
+- The Craft container's gateway is reachable by anyone who has its bearer token. Keep the token private. On a public host, serve it over the platform's TLS, and don't run it next to secrets it doesn't need: some platforms pass every project secret to each service. Security notes are in [`craft/README.md`](craft/README.md#gateway).
 
 ## Rights
 
@@ -177,7 +179,7 @@ You are responsible for having the rights to any source material you rework, suc
 
 ## Privacy
 
-`measure_session.py` only reads local session logs and writes a local file (`~/.studio/learning/ledger.csv`). Nothing is uploaded. The server makes no network calls of its own.
+`measure_session.py` only reads local session logs and writes a local file (`~/.studio/learning/ledger.csv`). Nothing is uploaded. The server makes no network calls of its own. Craft stages send the job's input files to the Craft container you run, and `craft_sync.py` talks only to that container.
 
 ## Develop
 

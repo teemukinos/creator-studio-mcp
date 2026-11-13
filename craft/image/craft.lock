@@ -1,0 +1,11 @@
+# app        version  arch     sha256 of <app>-<version>-linux-<arch>.tar.gz (from the release SHA256SUMS.txt)
+photocraft   0.23.1   aarch64  fcc81c38ae62c72fa9f4fd1ec3d18396493ba261662792d6995cc35905ce71d2
+photocraft   0.23.1   x86_64   4383aef67a07cc370ad250a6ed60015205d3e6c463faf3ff4b0f67b8178ccfc8
+vectorcraft  0.24.1   aarch64  4b9735489789d336c1ca4344689eb4a1d4a3f0b6e8db7f8c0659c24d10653455
+vectorcraft  0.24.1   x86_64   a090514252fde145495ac6fc65d6ff1311d698998e57ba434d5d0896c3d1fbfa
+effectcraft  0.24.1   aarch64  ad10c445065681760de9353117c6e2c45167eabcccf0ed19bde2f5c5ac908695
+effectcraft  0.24.1   x86_64   5ce0393690144227fa9186e82308ad638a6ef6d9f976c996e6d03b5b51b65a7b
+designcraft  0.20.1   aarch64  208c3cf73565fa765c47eeb601f94fec425e817d15cc2131dfa1c1ebe2d06620
+designcraft  0.20.1   x86_64   e91630d4cdf578ccb1e2f39f88e24e8520f1482d51ae4714657ee471e2237f44
+filmcraft    0.20.1   aarch64  cdce3d832620c7cf7150e6609fd98ad9702e7d4c57f827aab562e87d816ea13f
+filmcraft    0.20.1   x86_64   3e4fea3cb8d473e68f189a0a8792ba46160fab507adab3ab8920073fd41f24fa
