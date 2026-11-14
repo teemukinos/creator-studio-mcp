@@ -2,6 +2,8 @@
 
 Use these formats when one tool's output feeds another.
 
+**Craft adds a sync and checkpoint step** (`craft.md`). Push inputs with `craft_sync.py push <local dir> <job>/<dir>`, then use only `/work/<job>/…` paths in Craft commands. Craft-to-Craft handoffs use those paths directly, but save and pull native documents and necessary intermediates after every completed stage. Pull final outputs before local validation and remote cleanup. Remote storage is not a backup.
+
 | From → To | Format |
 |---|---|
 | Pixelmator → Rive | SVG for shapes you'll animate, PNG with transparency for raster art. One layer per moving part. |
@@ -19,3 +21,6 @@ Use these formats when one tool's output feeds another.
 | Rive → Final Cut | Rendered video from CLI frame renders, for promos only; the live product uses the `.riv` |
 | Godot → Final Cut | PNG sequence or AVI from Movie Maker mode (`godot.md`), for trailers |
 | Final Cut → anywhere | `scripts/render_fcpxml.py` on the timeline's FCPXML (headless; cuts, gaps and in/out points only), then `compressor_transcode` for other formats. File › Share needs Final Cut in front, so only the user can run it |
+| PhotoCraft → VectorCraft / DesignCraft | PNG or TIFF placed by remote job path |
+| VectorCraft → DesignCraft / EffectCraft | SVG/PDF where supported; transparent PNG layers preserve type when fonts differ |
+| EffectCraft → FilmCraft | Rendered intermediate at matching frame rate; verify the selected codec and alpha support |
