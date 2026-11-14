@@ -2,7 +2,7 @@
 
 An unofficial MCP server and agent skill that let Claude, Codex or any MCP client drive the Apple Creator Studio apps on your Mac: **Pixelmator Pro**, **Keynote**, **Pages**, **Numbers**, **Compressor**, **Final Cut Pro**, **Motion**, **Logic Pro** and **MainStage**. This project is unofficial and not affiliated with Apple. "Creator Studio" is Apple's subscription bundle, and you need your own copies of the apps.
 
-Everything runs locally. The server talks to the apps through AppleScript (`osascript`), macOS Accessibility, Compressor's command-line tool and FCPXML files. Nothing is sent over the network.
+The Mac server runs locally. It talks to the apps through AppleScript (`osascript`), macOS Accessibility, Compressor's command-line tool and FCPXML files. Its app operations do not send media over the network.
 
 The repository has two parts:
 
@@ -21,7 +21,9 @@ This asks which assistants to install to. To skip the questions, name them: `npx
 
 For claude.ai, download `studio.zip` from the [latest release](https://github.com/teemukinos/creator-studio-mcp/releases/latest) and upload it as a skill.
 
-The skill installs without the server, so install the server as well.
+The skill installs without the server. Install the server for Mac app workflows.
+
+The skill also documents an optional [Craft workflow](skills/studio/references/craft.md) for a separately configured Linux gateway. Craft jobs transfer media to that selected host and use separate credentials; this package does not install or provision it. The bundled Python helpers handle file transfers and script-owned MCP sessions. The guide includes sandbox preflight, recovery checkpoints and cleanup limitations.
 
 ## Install the server
 

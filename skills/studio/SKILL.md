@@ -1,6 +1,6 @@
 ---
 name: studio
-description: Plan and produce any design, media or game job on the user's Mac, from request to delivered files. Covers brief, creative direction, tool choice and production across Apple Creator Studio (Final Cut Pro, Motion, Logic Pro, Pixelmator Pro, Compressor, Keynote, Pages, Numbers, MainStage), Blender, Rive and Godot, all driven headless with no editor windows. Use for any video, motion graphics, interactive animation, 3D, image, audio, music remix, game, game asset, deck or document job, when starting or planning creative work, or to resume a job that has a plan.md.
+description: Plan and produce design, media and game jobs from brief to delivered files. Covers Apple Creator Studio, Blender, Rive, Godot and optional Craft apps on a configured gateway, with no editor windows. Use for video, motion, 3D, images, audio, games, documents and web animation, or to resume a job with plan.md.
 ---
 
 # Studio
@@ -11,7 +11,7 @@ One skill from request to delivered files. Three layers:
 
 1. **Direction**: design skills, where installed, decide how it looks, sounds, feels and moves.
 2. **Production**: this skill decides which tool makes each part and how files pass between tools.
-3. **Tools**: Creator Studio apps, Blender, Rive and Godot through the `creator-studio` MCP; plain code where no media tool is needed.
+3. **Tools**: Creator Studio apps, Blender, Rive and Godot through the `creator-studio` MCP; optional Craft apps through their separate gateway; plain code where no media tool is needed.
 
 **Hard rule: no editor windows, ever.** The user doesn't work in these editors and doesn't want to see them. Use each tool's engine directly: headless command-line runs, scripting, menu commands on hidden apps. Every check and every review uses output files (renders, frames, PNG screenshots, contact sheets, `ffprobe`, read-back documents), never a look at an app.
 
@@ -28,9 +28,9 @@ One skill from request to delivered files. Three layers:
 - Before trying a route, read the app's **Dead ends**. Don't retry one without a new reason.
 - Long jobs run in the background with a status file. Wait with one shell call of up to 270 s (`references/ui.md`), not repeated tool calls. Waits over 5 minutes expire the prompt cache.
 - Scripts print at most 20 lines: PASS or FAIL, the key numbers, the log path. Full logs go to `logs/`.
-- One unit of work per session: one song, one video variant, one image set, one level, one deck. Keep state in `plan.md` so a fresh session continues. If a session passes about 250k tokens before the unit is done, update `plan.md` and stop. From the second unit on, prefer Claude Code with only the creator-studio server (`--strict-mcp-config --mcp-config <file>`).
+- One unit of work per session: one song, one video variant, one image set, one level, one deck. Keep state in `plan.md` so a fresh session continues. If a session passes about 250k tokens before the unit is done, update `plan.md` and stop. From the second unit on, prefer Claude Code with only the servers needed by the plan (`--strict-mcp-config --mcp-config <file>`).
 
-**Requirements.** A Mac, the Apple Creator Studio apps the job uses, and the `creator-studio` MCP server 0.7.1 or later (`references/setup.md`). Blender, the Rive CLI and Godot only for jobs that use them; ffmpeg for headless video renders.
+**Requirements.** Mac jobs need the chosen apps and `creator-studio` MCP 0.7.1+ (`references/setup.md`); ffmpeg for video renders. Craft-only jobs need a preconfigured gateway, credentials and Python 3 (`references/craft.md`). This package does not provision Craft.
 
 Part A is the job flow. Part B is the tool reference. Reference files load on demand (B6).
 
@@ -62,6 +62,7 @@ State each assumption in one line. If the user isn't around to answer, take the 
 
 1. Create the job folder (B4) and write `brief.md`: purpose, audience, deliverables (format, size, duration, frame rate, sample rate, destination), brand or style source, inputs, constraints, assumptions. Under a page.
 2. Check the tools this job needs are up (B1). If one is missing, say which in one line and plan around it.
+3. For Craft, follow `references/craft.md`: verify host and sandbox access, create remote folders and push inputs before authoring.
 
 ## A3. Direction
 
@@ -121,7 +122,7 @@ Stage by stage:
 1. Do the stage with its tool, following its reference file (B6) and a Rive project's own `AGENTS.md`, minus its previewer advice.
 2. Run its check. If it fails, fix and re-run, at most twice on the same route. Then stop, add the route to the inbox as a dead-end (A8), and take the fallback or ask the user. Never move on past a failed check.
 3. Tick it in `plan.md` and add a log line.
-4. At a checkpoint, send the output files (or give paths) and wait for feedback. Keep checkpoints few: look frame, first full draft, final.
+4. At a checkpoint, send the output files (or give paths) and wait for feedback. Keep checkpoints few: look frame, first full draft, final. After every Craft stage, save and pull natives, intermediates and review output for recovery.
 
 If a tool fails or a feature isn't reachable headless, log it, use the fallback from Risks, and tell the user in one line.
 
@@ -139,7 +140,7 @@ Fix what matters; note the rest in the log.
 
 ## A8. Deliver
 
-Final files go in `out/` named `<job>-<variant>-<size>.<ext>`. Tell the user what each file is for and where it goes, in a few lines. Record licences and credits in `brief.md`. Leave `plan.md` complete so the job can be reopened.
+Final files go in `out/` named `<job>-<variant>-<size>.<ext>` unless the brief specifies names. For Craft, verify recovery and session cleanup (`references/craft.md`). Tell the user what each file is for and where it goes, in a few lines. Record licences and credits in `brief.md`. Leave `plan.md` complete so the job can be reopened.
 
 **Learn** (every unit, two calls at most). Learning data lives outside this skill, in `~/.studio/learning/` (`STUDIO_LEARNING_DIR` overrides it), because an update can replace the skill's folder.
 1. Measure: `python3 ${CLAUDE_SKILL_DIR}/scripts/measure_session.py --latest --job <job> --unit <unit> --type <job type> --plan <job folder>/plan.md`. Where `${CLAUDE_SKILL_DIR}` isn't filled in (Codex), use the path relative to this SKILL.md: `scripts/measure_session.py`. It prints a short summary and adds a row to `~/.studio/learning/ledger.csv`. Copy the summary into the Log.
@@ -161,6 +162,7 @@ Don't edit this skill's files from a job: an update can replace them. Lessons re
 | **Blender** 5.3: models, scenes, animation, rendering, glTF export | `blender_run_python` tool, or in a Mac shell `/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup -P script.py` | `creator_studio_status` |
 | **Rive**: interactive 2D animation, state machines, data binding | `rive_cli` tool, or `rive` in a Mac shell, on text project files | `rive_cli ["--version"]` |
 | **Godot** 4: games, real-time 2D/3D scenes, playable builds | `godot_cli` tool, always `--headless` | `creator_studio_status` |
+| **Craft**: optional Linux apps | Separate gateway; `scripts/craft_mcp.py` | `scripts/craft_sync.py up` |
 
 All assistants share the same `creator-studio` MCP server, so its tool names work in Claude, Claude Code and Codex. Claude chat has no shell on the Mac, so it always uses the MCP tools. Claude Code and Codex can also run Blender, `rive` and Godot in their shell, which is simpler for long scripts.
 
@@ -177,6 +179,8 @@ All assistants share the same `creator-studio` MCP server, so its tool names wor
 | Is **sound**: music, SFX, voice cleanup | **Logic Pro** for import, mastering and bounce; code for what hidden Logic can't reach (`references/logic.md`) | WAV masters; M4A/MP3 for web; OGG for Godot music |
 | Is a **deck, document or spreadsheet** | Keynote / Pages / Numbers | Native file + PDF/PPTX/DOCX/XLSX |
 | Is **live UI behaviour in code** (hover, scroll, layout transitions) | No media tool: CSS/JS/SwiftUI | Code |
+
+**Craft option.** PhotoCraft: images; VectorCraft: vectors; DesignCraft: layouts; EffectCraft: titles; FilmCraft: edits. Use their separate gateway (`references/craft.md`); preserve Compute-only constraints.
 
 Rive or video: anything that responds goes to Rive; anything that just plays goes to video or Motion. Rive or Godot: interactive pieces inside an existing app go to Rive; a standalone thing the player controls, with a world, physics or levels, goes to Godot. A game's in-game UI and HUD stay in Godot (Control nodes) unless the plan confirms a Rive runtime works for that Godot version.
 
@@ -238,5 +242,6 @@ In this skill's `references/` folder. Read a file when its trigger happens, not 
 | `rive.md` | before the first Rive stage |
 | `godot.md` | before the first Godot stage |
 | `setup.md` | when the `creator-studio` tools are missing or don't respond |
+| `craft.md` | before any Craft stage, startup, file sync or session cleanup |
 
 Each app file has **Recipes** (verified routes, with app version and date) and **Dead ends**. New ones go to the inbox in the same session (A8), dated, with the app version. To share one, see the repository's contribution guide.
